@@ -1,0 +1,32 @@
+.env
+
+venv
+
+venv/
+
+/venv
+
+__pycache__
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+env
+venv/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# 前端忽略文件
+node_modules/
+dist/
+static/screenshots/
+
+# IDE和系统文件
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
