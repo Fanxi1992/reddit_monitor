@@ -1,13 +1,7 @@
 import axios from 'axios'
 
-// 前端线上默认与后端部署在同一域名下，由 Nginx 反代 /api 和 /static。
-// 因此默认使用相对路径，避免把请求错误地打到浏览器本机的 127.0.0.1。
-// 如有特殊环境，也可以通过 Vite 环境变量覆盖：
-// - VITE_API_BASE_URL
-// - VITE_ASSET_BASE_URL
-export const BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || '/api'
-export const BACKEND_ASSET_BASE_URL =
-  import.meta.env.VITE_ASSET_BASE_URL?.trim() || ''
+export const BACKEND_BASE_URL = 'http://127.0.0.1:8000/api'
+export const BACKEND_ORIGIN = new URL(BACKEND_BASE_URL).origin
 
 export const apiClient = axios.create({
   baseURL: BACKEND_BASE_URL,
@@ -60,22 +54,7 @@ export interface NoteUpdatePayload {
 
 export function buildBackendAssetUrl(filePath: string) {
   const normalizedPath = filePath.replace(/^\/+/, '')
-
-  if (/^https?:\/\//i.test(normalizedPath)) {
-    return normalizedPath
-  }
-
-  // 优先使用显式配置的静态资源域名；若未配置，则默认走当前站点同域名。
-  if (BACKEND_ASSET_BASE_URL) {
-    return new URL(
-      `/${normalizedPath}`,
-      BACKEND_ASSET_BASE_URL.endsWith('/')
-        ? BACKEND_ASSET_BASE_URL
-        : `${BACKEND_ASSET_BASE_URL}/`,
-    ).toString()
-  }
-
-  return `/${normalizedPath}`
+  return `${BACKEND_ORIGIN}/${normalizedPath}`
 }
 
 export function getApiErrorMessage(
