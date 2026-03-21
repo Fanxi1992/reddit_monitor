@@ -104,23 +104,23 @@ export default function Layout() {
         </aside>
 
         <div className="flex min-h-[calc(100vh-2rem)] flex-1 flex-col rounded-[32px] border border-white/70 bg-[rgba(255,255,255,0.72)] p-4 shadow-[0_24px_90px_rgba(148,163,184,0.18)] backdrop-blur lg:p-6">
-          <header className="rounded-[28px] border border-[rgba(148,163,184,0.18)] bg-[rgba(255,255,255,0.82)] px-5 py-5 shadow-[0_18px_60px_rgba(148,163,184,0.12)]">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <header className="rounded-[28px] border border-[rgba(148,163,184,0.18)] bg-[rgba(255,255,255,0.82)] px-5 py-4 shadow-[0_18px_60px_rgba(148,163,184,0.12)]">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-2">
                 <p className="text-[11px] uppercase tracking-[0.32em] text-orange-700/80">
                   {currentMeta.eyebrow}
                 </p>
                 <div>
-                  <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+                  <h2 className="text-[2rem] font-bold tracking-tight text-slate-900">
                     {currentMeta.title}
                   </h2>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                  <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">
                     {currentMeta.description}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 rounded-2xl border border-orange-100 bg-orange-50/80 px-4 py-3 text-sm text-orange-900">
+              <div className="flex items-center gap-3 rounded-2xl border border-orange-100 bg-orange-50/80 px-4 py-2.5 text-sm text-orange-900">
                 <PanelLeft className="h-4 w-4" />
                 <span>内部运营控制台</span>
               </div>

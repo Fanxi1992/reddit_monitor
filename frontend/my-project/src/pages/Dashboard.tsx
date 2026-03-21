@@ -234,29 +234,43 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-4 xl:grid-cols-[repeat(3,minmax(0,1fr))_320px]">
-        <div className="rounded-[28px] border border-white/75 bg-[rgba(255,255,255,0.88)] p-5 shadow-[0_18px_60px_rgba(148,163,184,0.10)]">
-          <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Total Posts</p>
-          <div className="mt-3 text-3xl font-bold text-slate-900">{totalCount}</div>
-          <p className="mt-2 text-sm text-slate-500">当前筛选范围内的帖子总数</p>
+      <section className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="self-start rounded-[28px] border border-white/75 bg-[rgba(255,255,255,0.88)] p-4 shadow-[0_18px_60px_rgba(148,163,184,0.10)]">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">
+              Total Posts
+            </p>
+            <div className="mt-2 text-3xl font-bold text-slate-900">{totalCount}</div>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              当前客户筛选范围内的帖子总数
+            </p>
+          </div>
+
+          <div className="self-start rounded-[28px] border border-emerald-100 bg-[linear-gradient(180deg,rgba(240,253,244,0.95)_0%,rgba(255,255,255,0.95)_100%)] p-4 shadow-[0_18px_60px_rgba(16,185,129,0.08)]">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-700/80">
+              Active
+            </p>
+            <div className="mt-2 text-3xl font-bold text-emerald-700">{activeCount}</div>
+            <p className="mt-2 text-sm leading-6 text-emerald-700/80">
+              仍在正常监控中的帖子
+            </p>
+          </div>
+
+          <div className="self-start rounded-[28px] border border-red-100 bg-[linear-gradient(180deg,rgba(254,242,242,0.95)_0%,rgba(255,255,255,0.95)_100%)] p-4 shadow-[0_18px_60px_rgba(239,68,68,0.08)]">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-red-700/80">
+              Removed Alert
+            </p>
+            <div className="mt-2 text-3xl font-bold text-red-700">{removedCount}</div>
+            <p className="mt-2 text-sm leading-6 text-red-700/80">
+              已被移除，需要运营快速干预
+            </p>
+          </div>
         </div>
 
-        <div className="rounded-[28px] border border-emerald-100 bg-[linear-gradient(180deg,rgba(240,253,244,0.95)_0%,rgba(255,255,255,0.95)_100%)] p-5 shadow-[0_18px_60px_rgba(16,185,129,0.08)]">
-          <p className="text-xs uppercase tracking-[0.28em] text-emerald-700/80">Active</p>
-          <div className="mt-3 text-3xl font-bold text-emerald-700">{activeCount}</div>
-          <p className="mt-2 text-sm text-emerald-700/80">仍在正常监控中的帖子</p>
-        </div>
-
-        <div className="rounded-[28px] border border-red-100 bg-[linear-gradient(180deg,rgba(254,242,242,0.95)_0%,rgba(255,255,255,0.95)_100%)] p-5 shadow-[0_18px_60px_rgba(239,68,68,0.08)]">
-          <p className="text-xs uppercase tracking-[0.28em] text-red-700/80">Removed Alert</p>
-          <div className="mt-3 text-3xl font-bold text-red-700">{removedCount}</div>
-          <p className="mt-2 text-sm text-red-700/80">已被移除，需要运营快速干预</p>
-        </div>
-
-        <div className="rounded-[28px] border border-white/75 bg-[rgba(255,255,255,0.88)] p-5 shadow-[0_18px_60px_rgba(148,163,184,0.10)]">
+        <div className="self-start rounded-[28px] border border-white/75 bg-[rgba(255,255,255,0.88)] p-4 shadow-[0_18px_60px_rgba(148,163,184,0.10)]">
           <div className="space-y-3">
             <div className="space-y-2">
-              <span className="text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
+              <span className="text-[11px] font-medium uppercase tracking-[0.28em] text-slate-500">
                 Client Switcher
               </span>
               <div className="relative">
@@ -266,13 +280,13 @@ export default function Dashboard() {
                   value={clientSearch}
                   onChange={(event) => setClientSearch(event.target.value)}
                   placeholder="输入关键词切换客户"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-11 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-300 focus:bg-white focus:ring-4 focus:ring-orange-100"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-11 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-300 focus:bg-white focus:ring-4 focus:ring-orange-100"
                 />
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">
                 当前查看
               </span>
               <span
@@ -309,7 +323,7 @@ export default function Dashboard() {
                         type="button"
                         onClick={() => void handleSelectClient(`${client.id}`)}
                         className={[
-                          'flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm transition',
+                          'flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-left text-sm transition',
                           isSelected
                             ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-200'
                             : 'bg-white text-slate-700 hover:bg-slate-100',
@@ -326,7 +340,7 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => void handleResetToDefaultClient()}
@@ -348,7 +362,7 @@ export default function Dashboard() {
           <button
             type="button"
             onClick={() => void fetchDashboardData({ silent: true })}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             刷新列表
