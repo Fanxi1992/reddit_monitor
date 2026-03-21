@@ -55,16 +55,26 @@ def get_posts(
         default=None,
         description="客户主数据 ID，传入后按该客户精确筛选",
     ),
+    unassigned: bool = Query(
+        default=False,
+        description="是否只返回未分配客户的帖子。为 true 时优先于 client_id。",
+    ),
     db: Session = Depends(get_db),
 ):
     """
     获取帖子列表。
 
-    如果未传 client_id，则返回全部帖子；
-    如果传了 client_id，则只返回该客户对应的数据。
+    规则：
+    1. 如果 unassigned=true，则只返回 client_id 为空的帖子。
+    2. 否则如果传了 client_id，则只返回该客户对应的数据。
+    3. 两者都不传时，返回全部帖子。
     """
 
-    return crud.get_posts(db=db, client_id=client_id)
+    return crud.get_posts(
+        db=db,
+        client_id=client_id,
+        unassigned=unassigned,
+    )
 
 
 @router.put(

@@ -505,19 +505,26 @@ def create_post(db: Session, post_in: schemas.PostCreate) -> models.Post:
     return get_post_or_404(db, db_post.id)
 
 
-def get_posts(db: Session, client_id: int | None = None) -> list[models.Post]:
+def get_posts(
+    db: Session,
+    client_id: int | None = None,
+    unassigned: bool = False,
+) -> list[models.Post]:
     """
     获取帖子列表。
 
     规则：
     1. 支持按 client_id 精确筛选。
-    2. 默认通过 joinedload 一次性带出客户主数据。
-    3. 按 created_at 倒序返回，确保最新登记的帖子排在最前面。
+    2. 支持按“未分配客户”筛选。
+    3. 默认通过 joinedload 一次性带出客户主数据。
+    4. 按 created_at 倒序返回，确保最新登记的帖子排在最前面。
     """
 
     query = db.query(models.Post).options(joinedload(models.Post.client))
 
-    if client_id is not None:
+    if unassigned:
+        query = query.filter(models.Post.client_id.is_(None))
+    elif client_id is not None:
         query = query.filter(models.Post.client_id == client_id)
 
     return query.order_by(models.Post.created_at.desc()).all()
