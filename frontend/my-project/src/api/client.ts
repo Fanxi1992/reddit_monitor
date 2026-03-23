@@ -10,11 +10,19 @@ export const BACKEND_ASSET_BASE_URL =
 export const DEFAULT_PAGE_SIZE = 30
 
 export type PostType = '原创' | '代发' | '其他'
+export type RetentionDays = 2 | 7
 export type PostStatusFilter = 'all' | 'normal' | 'ban'
 export type PostTypeFilter = 'all' | PostType
 export type PostMetricFilter = 'all' | 'lte_5' | 'lte_10' | 'lte_15'
 
 export const POST_TYPE_OPTIONS: PostType[] = ['原创', '代发', '其他']
+export const RETENTION_DAYS_OPTIONS: Array<{
+  label: string
+  value: RetentionDays
+}> = [
+  { label: '7 天', value: 7 },
+  { label: '2 天', value: 2 },
+]
 export const POST_STATUS_FILTER_OPTIONS: Array<{
   label: string
   value: PostStatusFilter
@@ -65,6 +73,7 @@ export interface CreatePostPayload {
   title: string
   client_id: number
   post_type?: PostType
+  retention_days?: RetentionDays
   operator_note: string | null
 }
 
@@ -74,6 +83,7 @@ export interface PostResponse {
   url: string
   title: string
   post_type: PostType
+  retention_days: RetentionDays
   client_id: number | null
   client_name: string | null
   operator_note: string | null
@@ -101,6 +111,7 @@ export interface PostRetentionRowResponse {
   url: string
   title: string
   post_type: PostType
+  retention_days: RetentionDays
   client_id: number | null
   client_name: string | null
   status: string

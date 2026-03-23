@@ -3,6 +3,7 @@ import { useDeferredValue, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   CircleAlert,
+  Clock3,
   Link2,
   LoaderCircle,
   NotebookPen,
@@ -15,14 +16,17 @@ import {
 import {
   apiClient,
   getApiErrorMessage,
+  RETENTION_DAYS_OPTIONS,
   type ClientResponse,
   type CreatePostPayload,
+  type RetentionDays,
 } from '../api/client'
 
 interface RegisterFormState {
   url: string
   title: string
   client_id: number | null
+  retention_days: RetentionDays
   operator_note: string
 }
 
@@ -30,6 +34,7 @@ const initialFormState: RegisterFormState = {
   url: '',
   title: '',
   client_id: null,
+  retention_days: 7,
   operator_note: '',
 }
 
@@ -192,6 +197,7 @@ export default function RegisterPost() {
       url: formState.url,
       title: formState.title,
       client_id: formState.client_id,
+      retention_days: formState.retention_days,
       operator_note: formState.operator_note.trim() ? formState.operator_note : null,
     }
 
@@ -255,6 +261,28 @@ export default function RegisterPost() {
               />
             </label>
 
+            <div className="space-y-2">
+              <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <Clock3 className="h-4 w-4 text-orange-700" />
+                留存周期
+              </span>
+              <select
+                value={formState.retention_days}
+                onChange={(event) =>
+                  updateField('retention_days', Number(event.target.value) as RetentionDays)
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-orange-300 focus:bg-white focus:ring-4 focus:ring-orange-100"
+              >
+                {RETENTION_DAYS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <div className="space-y-2">
               <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
                 <UserRound className="h-4 w-4 text-orange-700" />

@@ -85,6 +85,16 @@ def ensure_runtime_schema() -> None:
                 )
             )
 
+        if "retention_days" not in existing_columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE posts
+                    ADD COLUMN retention_days INT NOT NULL DEFAULT 7
+                    """
+                )
+            )
+
         if "operator_note_updated_at" not in existing_columns:
             connection.execute(
                 text(
@@ -234,6 +244,10 @@ def backfill_post_summary_fields() -> None:
 
         has_changes = False
         for post in posts:
+            if post.retention_days not in models.RETENTION_DAYS_VALUES:
+                post.retention_days = models.RETENTION_DAYS_STANDARD
+                has_changes = True
+
             latest_log = latest_log_by_post_id.get(post.id)
             if latest_log and post.last_scraped_at is None:
                 post.last_scraped_at = latest_log.scraped_at

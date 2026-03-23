@@ -3,6 +3,7 @@ import { useDeferredValue, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   ChevronDown,
+  Clock3,
   Link2,
   LoaderCircle,
   NotebookPen,
@@ -17,9 +18,11 @@ import {
   apiClient,
   getApiErrorMessage,
   POST_TYPE_OPTIONS,
+  RETENTION_DAYS_OPTIONS,
   type ClientResponse,
   type CreatePostPayload,
   type PostType,
+  type RetentionDays,
 } from '../api/client'
 
 interface PostEntryFormState {
@@ -27,6 +30,7 @@ interface PostEntryFormState {
   title: string
   client_id: number | null
   post_type: PostType
+  retention_days: RetentionDays
   operator_note: string
 }
 
@@ -35,6 +39,7 @@ const initialFormState: PostEntryFormState = {
   title: '',
   client_id: null,
   post_type: '原创',
+  retention_days: 7,
   operator_note: '',
 }
 
@@ -228,6 +233,7 @@ export default function PostEntry() {
       title: formState.title.trim(),
       client_id: formState.client_id,
       post_type: formState.post_type,
+      retention_days: formState.retention_days,
       operator_note: formState.operator_note.trim()
         ? formState.operator_note.trim()
         : null,
@@ -266,7 +272,7 @@ export default function PostEntry() {
             />
           </label>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_210px]">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_210px_210px]">
             <label className="block space-y-1.5">
               <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                 <NotebookPen className="h-4 w-4 text-blue-600" />
@@ -299,6 +305,27 @@ export default function PostEntry() {
                 {POST_TYPE_OPTIONS.map((postType) => (
                   <option key={postType} value={postType}>
                     {postType}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <Clock3 className="h-4 w-4 text-blue-600" />
+                留存周期
+                <span className="text-red-500">*</span>
+              </span>
+              <select
+                value={formState.retention_days}
+                onChange={(event) =>
+                  updateField('retention_days', Number(event.target.value) as RetentionDays)
+                }
+                className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+              >
+                {RETENTION_DAYS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>

@@ -48,11 +48,14 @@ MAX_URLS_PER_BATCH = 30
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATIC_SCREENSHOTS_DIR = PROJECT_ROOT / "static" / "screenshots"
 
-# 允许的截图业务天数。
-# 业务定义调整为：
-# - 第 0 天：发帖当天
-# - 第 1 / 2 / 4 / 7 天：后续留存节点
-SCREENSHOT_DAY_MARKS = {0, 1, 2, 4, 7}
+# 各追踪方案允许的截图业务天数。
+# - 7 天方案：第 0 / 1 / 2 / 4 / 7 天
+# - 2 天方案：第 0 / 1 天
+SCREENSHOT_DAY_MARKS_BY_RETENTION_DAYS = {
+    models.RETENTION_DAYS_STANDARD: frozenset({0, 1, 2, 4, 7}),
+    models.RETENTION_DAYS_SHORT: frozenset({0, 1}),
+}
+SCREENSHOT_DAY_MARKS = frozenset().union(*SCREENSHOT_DAY_MARKS_BY_RETENTION_DAYS.values())
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +108,19 @@ def ensure_screenshot_storage_dir() -> None:
     """
 
     STATIC_SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def get_screenshot_day_marks(retention_days: int) -> frozenset[int]:
+    """
+    根据帖子追踪方案返回允许的截图 day_mark 集合。
+
+    若遇到未知值，兜底按 7 天标准方案处理，避免调度器因脏数据直接失效。
+    """
+
+    return SCREENSHOT_DAY_MARKS_BY_RETENTION_DAYS.get(
+        retention_days,
+        SCREENSHOT_DAY_MARKS_BY_RETENTION_DAYS[models.RETENTION_DAYS_STANDARD],
+    )
 
 
 def chunk_urls(urls: list[str], chunk_size: int = MAX_URLS_PER_BATCH) -> list[list[str]]:

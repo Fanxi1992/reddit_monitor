@@ -379,6 +379,25 @@ def normalize_operator_note(note: str | None) -> str | None:
     return cleaned_note or None
 
 
+def normalize_retention_days(retention_days: int | None) -> int:
+    """
+    统一校验并归一化追踪方案天数。
+
+    当前只支持：
+    1. 7 天标准方案
+    2. 2 天轻量方案
+    """
+
+    normalized_retention_days = retention_days or models.RETENTION_DAYS_STANDARD
+    if normalized_retention_days not in models.RETENTION_DAYS_VALUES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="retention_days 仅支持 7 或 2。",
+        )
+
+    return normalized_retention_days
+
+
 def resolve_metric_filter_threshold(filter_value: str | None, field_name: str) -> int | None:
     """
     解析点赞/评论阈值筛选。
@@ -568,12 +587,14 @@ def create_post(db: Session, post_in: schemas.PostCreate) -> models.Post:
 
     client = get_client_or_404(db, post_in.client_id)
     normalized_operator_note = normalize_operator_note(post_in.operator_note)
+    normalized_retention_days = normalize_retention_days(post_in.retention_days)
 
     db_post = models.Post(
         reddit_id=reddit_id,
         url=parsed_post_url.canonical_url,
         title=post_in.title.strip(),
         post_type=post_in.post_type,
+        retention_days=normalized_retention_days,
         client_id=client.id,
         operator_note=normalized_operator_note,
         operator_note_updated_at=models.utc_now() if normalized_operator_note else None,

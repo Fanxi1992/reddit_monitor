@@ -27,6 +27,12 @@ POST_TYPE_VALUES = (
     POST_TYPE_GHOSTWRITTEN,
     POST_TYPE_OTHER,
 )
+RETENTION_DAYS_SHORT = 2
+RETENTION_DAYS_STANDARD = 7
+RETENTION_DAYS_VALUES = (
+    RETENTION_DAYS_SHORT,
+    RETENTION_DAYS_STANDARD,
+)
 
 
 def utc_now() -> datetime:
@@ -77,6 +83,17 @@ class Post(Base):
         String(20),
         nullable=False,
         default=POST_TYPE_OTHER,
+        index=True,
+    )
+
+    # 追踪方案天数。
+    # 当前仅支持两档：
+    # 1. 7 天：标准追踪，包含 48h 高频 + 7 天内每日巡检
+    # 2. 2 天：轻量追踪，仅覆盖前 48h 的高频巡检与 2 次截图窗口
+    retention_days = Column(
+        Integer,
+        nullable=False,
+        default=RETENTION_DAYS_STANDARD,
         index=True,
     )
 
@@ -165,7 +182,7 @@ class Post(Base):
     )
 
     # 与 screenshot_logs 建立一对多关系。
-    # 每条帖子在第 0 / 1 / 2 / 4 / 7 天最多各有一张成功截图。
+    # 每条帖子在各自方案允许的 day_mark 下最多各有一张成功截图。
     screenshots = relationship(
         "ScreenshotLog",
         back_populates="post",

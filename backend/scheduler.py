@@ -7,8 +7,8 @@
 3. 用 AsyncIOScheduler 把任务挂到 FastAPI 生命周期中。
 
 调度策略：
-1. 全面巡检：过去 7 天内、且未 Removed 的帖子，每天 06:00 执行一次。
-2. 高频巡检：过去 48 小时内、且未 Removed 的帖子，每天 00:00 / 12:00 / 18:00 执行。
+1. 每日巡检：7 天方案帖子在过去 7 天内参与；2 天方案帖子只在过去 48 小时内参与。每天 06:00 执行一次。
+2. 高频巡检：过去 48 小时内、且未 Removed 的帖子，每天 00:00 / 11:00 / 18:00 执行。
 
 特别注意：
 1. 调度器时区必须使用 Asia/Shanghai。
@@ -25,13 +25,15 @@ from typing import Iterator
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend import models
 from backend.database import engine
 from backend.scraper import (
-    SCREENSHOT_DAY_MARKS,
     ScrapeTarget,
+    SCREENSHOT_DAY_MARKS,
+    get_screenshot_day_marks,
     scrape_and_download_screenshots_async,
     scrape_posts_async,
 )
@@ -81,17 +83,67 @@ def utc_now_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def load_active_targets_since(cutoff_datetime: datetime) -> list[ScrapeTarget]:
+def load_active_targets_since(
+    cutoff_datetime: datetime,
+    retention_days: int | None = None,
+) -> list[ScrapeTarget]:
     """
     从数据库中加载某个时间窗口内、且尚未 Removed 的帖子目标。
     """
 
     with get_scheduler_session() as db:
-        posts = (
+        query = (
             db.query(models.Post)
             .filter(models.Post.created_at >= cutoff_datetime)
             .filter(models.Post.status != "Removed")
             .filter(models.Post.is_archived.is_(False))
+        )
+        if retention_days is not None:
+            query = query.filter(models.Post.retention_days == retention_days)
+
+        posts = query.order_by(models.Post.created_at.desc()).all()
+
+        return [
+            ScrapeTarget(
+                post_id=post.id,
+                reddit_id=post.reddit_id,
+                url=post.url,
+            )
+            for post in posts
+        ]
+
+
+def load_daily_inspection_targets() -> list[ScrapeTarget]:
+    """
+    加载 06:00 每日巡检需要处理的帖子目标。
+
+    当前规则：
+    1. 7 天方案：过去 7 天内都参与。
+    2. 2 天方案：仅在前 48 小时内参与。
+    3. 两类帖子都必须满足：未归档、未 Removed。
+    """
+
+    current_utc_naive = utc_now_naive()
+    standard_cutoff_datetime = current_utc_naive - timedelta(days=7)
+    short_cutoff_datetime = current_utc_naive - timedelta(hours=48)
+
+    with get_scheduler_session() as db:
+        posts = (
+            db.query(models.Post)
+            .filter(models.Post.status != "Removed")
+            .filter(models.Post.is_archived.is_(False))
+            .filter(
+                or_(
+                    and_(
+                        models.Post.retention_days == models.RETENTION_DAYS_STANDARD,
+                        models.Post.created_at >= standard_cutoff_datetime,
+                    ),
+                    and_(
+                        models.Post.retention_days == models.RETENTION_DAYS_SHORT,
+                        models.Post.created_at >= short_cutoff_datetime,
+                    ),
+                )
+            )
             .order_by(models.Post.created_at.desc())
             .all()
         )
@@ -113,7 +165,7 @@ def load_screenshot_targets() -> list[tuple[ScrapeTarget, int]]:
     规则：
     1. 仅处理当前状态仍为 Active 的帖子。
     2. 根据当前 UTC 时间与 created_at 的整数天差计算 day_mark。
-    3. 只选择第 0 / 1 / 2 / 4 / 7 天的帖子。
+    3. 根据帖子自己的追踪方案，选择允许的截图 day_mark。
     4. 如果同一个 post_id + day_mark 已有成功截图，则本轮直接跳过。
     """
 
@@ -136,7 +188,7 @@ def load_screenshot_targets() -> list[tuple[ScrapeTarget, int]]:
                 continue
 
             day_mark = (current_utc_naive - post.created_at).days
-            if day_mark not in SCREENSHOT_DAY_MARKS:
+            if day_mark not in get_screenshot_day_marks(post.retention_days):
                 continue
 
             candidate_targets.append((post, day_mark))
@@ -174,11 +226,12 @@ async def run_full_inspection() -> dict:
     """
     策略 A：全面巡检。
 
-    选择过去 7 天内、状态仍然不是 Removed 的帖子。
+    选择 06:00 每日巡检需要处理的帖子：
+    1. 7 天方案：过去 7 天内
+    2. 2 天方案：过去 48 小时内
     """
 
-    cutoff_datetime = utc_now_naive() - timedelta(days=7)
-    targets = await asyncio.to_thread(load_active_targets_since, cutoff_datetime)
+    targets = await asyncio.to_thread(load_daily_inspection_targets)
     return await scrape_posts_async(targets)
 
 
@@ -187,6 +240,10 @@ async def run_high_frequency_inspection() -> dict:
     策略 B：高频巡检。
 
     选择过去 48 小时内、状态仍然不是 Removed 的帖子。
+
+    这里同时覆盖：
+    1. 7 天标准方案的前 48h 高频窗口
+    2. 2 天轻量方案的全部元数据抓取窗口
     """
 
     cutoff_datetime = utc_now_naive() - timedelta(hours=48)
@@ -198,8 +255,8 @@ async def run_screenshot_capture() -> dict:
     """
     截图留存巡检任务。
 
-    每天固定巡检一次，命中第 0 / 1 / 2 / 4 / 7 天窗口的 Active 帖子
-    会被送入截图 Actor，并在成功后立刻把图片下载到本地。
+    每天固定巡检一次，命中各自方案截图窗口的 Active 帖子会被送入截图 Actor，
+    并在成功后立刻把图片下载到本地。
     """
 
     targets_with_days = await asyncio.to_thread(load_screenshot_targets)
@@ -231,7 +288,7 @@ def get_scheduler() -> AsyncIOScheduler:
             misfire_grace_time=3600,
         )
 
-        # 每天 00:00 / 12:00 / 18:00 执行高频巡检。
+        # 每天 00:00 / 11:00 / 18:00 执行高频巡检。
         _scheduler.add_job(
             run_high_frequency_inspection,
             trigger="cron",
@@ -244,7 +301,7 @@ def get_scheduler() -> AsyncIOScheduler:
             misfire_grace_time=3600,
         )
 
-        # 每天 08:00 执行截图留存巡检。
+        # 每天 13:00 执行截图留存巡检。
         _scheduler.add_job(
             run_screenshot_capture,
             trigger="cron",
