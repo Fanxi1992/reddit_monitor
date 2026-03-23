@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ModulePlaceholder from './pages/ModulePlaceholder'
+import PostArchive from './pages/PostArchive'
 import PostEntry from './pages/PostEntry'
 import PostManagement from './pages/PostManagement'
 import RegisterPost from './pages/RegisterPost'
@@ -38,13 +39,7 @@ export default function App() {
           />
           <Route
             path="/post-archive"
-            element={
-              <ModulePlaceholder
-                eyebrow="Archive Center"
-                title="归档帖子"
-                description="这里将承接 7 天观察期结束、运营完成、或不再需要持续盯盘的帖子归档视图，并提供归档后的检索与回看能力。"
-              />
-            }
+            element={<PostArchive />}
           />
           <Route
             path="/post-retention"

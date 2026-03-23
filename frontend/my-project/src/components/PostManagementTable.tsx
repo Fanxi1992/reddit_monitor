@@ -76,18 +76,26 @@ function formatMetric(value: number | null) {
 interface PostManagementTableProps {
   posts: PostResponse[]
   isLoading: boolean
+  actionVariant: 'archive' | 'unarchive'
   onCopyLink: (post: PostResponse) => Promise<void> | void
   onEditNote: (post: PostResponse) => void
-  onArchive: (post: PostResponse) => void
+  onAction: (post: PostResponse) => void
 }
 
 export default function PostManagementTable({
   posts,
   isLoading,
+  actionVariant,
   onCopyLink,
   onEditNote,
-  onArchive,
+  onAction,
 }: PostManagementTableProps) {
+  const actionLabel = actionVariant === 'unarchive' ? '取消归档' : '归档'
+  const actionButtonClassName =
+    actionVariant === 'unarchive'
+      ? 'border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+      : 'border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+
   if (isLoading) {
     return (
       <div className="flex min-h-[240px] items-center justify-center gap-2 text-sm text-slate-500">
@@ -107,7 +115,7 @@ export default function PostManagementTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-[1160px] w-full table-fixed border-collapse text-sm text-slate-700">
+      <table className="min-w-[1188px] w-full table-fixed border-collapse text-sm text-slate-700">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/70 text-left text-xs uppercase tracking-[0.14em] text-slate-500">
             <th className="w-[58px] px-3 py-3 font-semibold">状态</th>
@@ -120,7 +128,7 @@ export default function PostManagementTable({
             <th className="w-[320px] px-3 py-3 font-semibold">运营备注</th>
             <th className="w-[150px] px-3 py-3 font-semibold">创建时间</th>
             <th className="w-[150px] px-3 py-3 font-semibold">最近更新</th>
-            <th className="w-[104px] px-3 py-3 font-semibold">操作</th>
+            <th className="w-[132px] px-3 py-3 font-semibold">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -188,11 +196,14 @@ export default function PostManagementTable({
                 <td className="px-3 py-3">
                   <button
                     type="button"
-                    onClick={() => onArchive(post)}
-                    className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100"
+                    onClick={() => onAction(post)}
+                    className={[
+                      'inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition',
+                      actionButtonClassName,
+                    ].join(' ')}
                   >
                     <Archive className="h-3.5 w-3.5" />
-                    归档
+                    {actionLabel}
                   </button>
                 </td>
               </tr>

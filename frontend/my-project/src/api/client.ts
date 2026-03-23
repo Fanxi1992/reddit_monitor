@@ -133,6 +133,11 @@ export async function archivePost(postId: number) {
   return response.data
 }
 
+export async function unarchivePost(postId: number) {
+  const response = await apiClient.post<PostResponse>(`/posts/${postId}/unarchive`)
+  return response.data
+}
+
 export function buildBackendAssetUrl(filePath: string) {
   const normalizedPath = filePath.replace(/^\/+/, '')
 
