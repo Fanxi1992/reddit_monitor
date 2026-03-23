@@ -7,6 +7,7 @@ import axios from 'axios'
 export const BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || '/api'
 export const BACKEND_ASSET_BASE_URL =
   import.meta.env.VITE_ASSET_BASE_URL?.trim() || ''
+export const DEFAULT_PAGE_SIZE = 30
 
 export type PostType = '原创' | '代发' | '其他'
 export type PostStatusFilter = 'all' | 'normal' | 'ban'
@@ -115,6 +116,14 @@ export interface PostRetentionHistoryResponse {
   screenshots: ScreenshotResponse[]
 }
 
+export interface PaginatedResponse<T> {
+  items: T[]
+  total_count: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
 export interface NoteUpdatePayload {
   operator_note: string
 }
@@ -129,6 +138,11 @@ export interface PostListParams {
   comments_filter?: PostMetricFilter
   client_keyword?: string
   title_keyword?: string
+}
+
+export interface PaginationParams {
+  page?: number
+  page_size?: number
 }
 
 export interface PostRetentionListParams {
@@ -148,6 +162,16 @@ export async function fetchPosts(params?: PostListParams) {
   return response.data
 }
 
+export async function fetchPostsPage(params?: PostListParams & PaginationParams) {
+  const response = await apiClient.get<PaginatedResponse<PostResponse>>('/posts/', { params })
+
+  if (!response.data || !Array.isArray(response.data.items)) {
+    throw new Error('帖子分页列表响应格式异常。')
+  }
+
+  return response.data
+}
+
 export async function fetchRetentionPosts(params?: PostRetentionListParams) {
   const response = await apiClient.get<PostRetentionRowResponse[]>('/posts/retention', {
     params,
@@ -155,6 +179,23 @@ export async function fetchRetentionPosts(params?: PostRetentionListParams) {
 
   if (!Array.isArray(response.data)) {
     throw new Error('帖子留存列表响应格式异常。')
+  }
+
+  return response.data
+}
+
+export async function fetchRetentionPostsPage(
+  params?: PostRetentionListParams & PaginationParams,
+) {
+  const response = await apiClient.get<PaginatedResponse<PostRetentionRowResponse>>(
+    '/posts/retention',
+    {
+      params,
+    },
+  )
+
+  if (!response.data || !Array.isArray(response.data.items)) {
+    throw new Error('帖子留存分页列表响应格式异常。')
   }
 
   return response.data

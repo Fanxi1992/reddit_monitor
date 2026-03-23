@@ -20,7 +20,7 @@ import httpx
 from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Query, Session, joinedload
 
 from backend import models, schemas
 
@@ -40,6 +40,7 @@ POST_METRIC_FILTER_THRESHOLD_MAP = {
     "lte_10": 10,
     "lte_15": 15,
 }
+DEFAULT_PAGE_SIZE = 30
 
 
 # Reddit 标准帖子详情页 URL 中的帖子 ID 提取规则。
@@ -401,6 +402,32 @@ def resolve_metric_filter_threshold(filter_value: str | None, field_name: str) -
     return threshold
 
 
+def resolve_pagination(page: int | None, page_size: int | None) -> tuple[int | None, int | None]:
+    """
+    解析分页参数。
+
+    兼容策略：
+    1. page 和 page_size 都不传时，保持旧接口数组响应。
+    2. 任意一项传入时，自动启用分页，并为缺省项补默认值。
+    """
+
+    if page is None and page_size is None:
+        return None, None
+
+    return page or 1, page_size or DEFAULT_PAGE_SIZE
+
+
+def paginate_query(query: Query, page: int, page_size: int) -> tuple[list, int, int]:
+    """
+    对 SQLAlchemy Query 执行标准分页。
+    """
+
+    total_count = query.order_by(None).count()
+    total_pages = (total_count + page_size - 1) // page_size if total_count else 0
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    return items, total_count, total_pages
+
+
 def get_client_or_404(db: Session, client_id: int) -> models.Client:
     """
     根据主键获取客户主数据。
@@ -580,7 +607,9 @@ def get_posts(
     comments_filter: str = POST_METRIC_FILTER_ALL,
     client_keyword: str | None = None,
     title_keyword: str | None = None,
-) -> list[models.Post]:
+    page: int | None = None,
+    page_size: int | None = None,
+) -> list[models.Post] | schemas.PostPageResponse:
     """
     获取帖子列表。
 
@@ -653,7 +682,27 @@ def get_posts(
     if normalized_title_keyword:
         query = query.filter(models.Post.title.ilike(f"%{normalized_title_keyword}%"))
 
-    return query.order_by(models.Post.created_at.desc()).all()
+    ordered_query = query.order_by(models.Post.created_at.desc())
+    resolved_page, resolved_page_size = resolve_pagination(page, page_size)
+
+    if resolved_page is None or resolved_page_size is None:
+        return ordered_query.all()
+
+    items, total_count, total_pages = paginate_query(
+        ordered_query,
+        resolved_page,
+        resolved_page_size,
+    )
+    return schemas.PostPageResponse(
+        items=[
+            schemas.PostResponse.model_validate(post)
+            for post in items
+        ],
+        total_count=total_count,
+        page=resolved_page,
+        page_size=resolved_page_size,
+        total_pages=total_pages,
+    )
 
 
 def get_retention_posts(
@@ -662,7 +711,9 @@ def get_retention_posts(
     post_type: str = "all",
     client_keyword: str | None = None,
     title_keyword: str | None = None,
-) -> list[models.Post]:
+    page: int | None = None,
+    page_size: int | None = None,
+) -> list[models.Post] | schemas.PostRetentionPageResponse:
     """
     获取帖子留存总表数据。
 
@@ -707,7 +758,27 @@ def get_retention_posts(
     if normalized_title_keyword:
         query = query.filter(models.Post.title.ilike(f"%{normalized_title_keyword}%"))
 
-    return query.order_by(models.Post.created_at.desc()).all()
+    ordered_query = query.order_by(models.Post.created_at.desc())
+    resolved_page, resolved_page_size = resolve_pagination(page, page_size)
+
+    if resolved_page is None or resolved_page_size is None:
+        return ordered_query.all()
+
+    items, total_count, total_pages = paginate_query(
+        ordered_query,
+        resolved_page,
+        resolved_page_size,
+    )
+    return schemas.PostRetentionPageResponse(
+        items=[
+            schemas.PostRetentionRowResponse.model_validate(post)
+            for post in items
+        ],
+        total_count=total_count,
+        page=resolved_page,
+        page_size=resolved_page_size,
+        total_pages=total_pages,
+    )
 
 
 def update_operator_note(

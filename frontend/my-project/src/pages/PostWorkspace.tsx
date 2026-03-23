@@ -3,7 +3,8 @@ import toast from 'react-hot-toast'
 
 import {
   archivePost,
-  fetchPosts,
+  DEFAULT_PAGE_SIZE,
+  fetchPostsPage,
   getApiErrorMessage,
   unarchivePost,
   updatePostNote,
@@ -11,6 +12,7 @@ import {
   type PostResponse,
 } from '../api/client'
 import Modal from '../components/Modal'
+import PaginationControls from '../components/PaginationControls'
 import PostManagementFilters, {
   type PostManagementFilterDraft,
 } from '../components/PostManagementFilters'
@@ -42,6 +44,13 @@ interface WorkspaceCopy {
   confirmBody: string
   confirmButtonLabel: string
   confirmButtonLoadingLabel: string
+}
+
+interface PaginationState {
+  page: number
+  pageSize: number
+  totalCount: number
+  totalPages: number
 }
 
 const WORKSPACE_COPY: Record<PostWorkspaceMode, WorkspaceCopy> = {
@@ -86,9 +95,20 @@ function normalizeNoteForSave(note: string) {
   return note.trim()
 }
 
+function createDefaultPaginationState(): PaginationState {
+  return {
+    page: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
+    totalCount: 0,
+    totalPages: 0,
+  }
+}
+
 export default function PostWorkspace({ mode }: PostWorkspaceProps) {
   const [posts, setPosts] = useState<PostResponse[]>([])
   const [filterDraft, setFilterDraft] = useState<PostManagementFilterDraft>(DEFAULT_FILTERS)
+  const [appliedFilters, setAppliedFilters] = useState<PostManagementFilterDraft>(DEFAULT_FILTERS)
+  const [pagination, setPagination] = useState<PaginationState>(createDefaultPaginationState)
   const [isLoading, setIsLoading] = useState(true)
   const [activeNotePost, setActiveNotePost] = useState<PostResponse | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
@@ -100,6 +120,8 @@ export default function PostWorkspace({ mode }: PostWorkspaceProps) {
 
   useEffect(() => {
     setFilterDraft(DEFAULT_FILTERS)
+    setAppliedFilters(DEFAULT_FILTERS)
+    setPagination(createDefaultPaginationState())
 
     let isCancelled = false
 
@@ -107,14 +129,25 @@ export default function PostWorkspace({ mode }: PostWorkspaceProps) {
       setIsLoading(true)
 
       try {
-        const nextPosts = await fetchPosts(buildPostListParams(DEFAULT_FILTERS, mode))
+        const nextPage = await fetchPostsPage({
+          ...buildPostListParams(DEFAULT_FILTERS, mode),
+          page: 1,
+          page_size: DEFAULT_PAGE_SIZE,
+        })
         if (!isCancelled) {
-          setPosts(nextPosts)
+          setPosts(nextPage.items)
+          setPagination({
+            page: nextPage.page,
+            pageSize: nextPage.page_size,
+            totalCount: nextPage.total_count,
+            totalPages: nextPage.total_pages,
+          })
         }
       } catch (error) {
         if (!isCancelled) {
           toast.error(getApiErrorMessage(error, '帖子列表加载失败，请稍后重试。'))
           setPosts([])
+          setPagination(createDefaultPaginationState())
         }
       } finally {
         if (!isCancelled) {
@@ -140,27 +173,61 @@ export default function PostWorkspace({ mode }: PostWorkspaceProps) {
     }))
   }
 
-  async function loadPosts(filters: PostManagementFilterDraft) {
+  async function loadPosts(
+    filters: PostManagementFilterDraft,
+    page: number,
+  ) {
     setIsLoading(true)
 
     try {
-      const nextPosts = await fetchPosts(buildPostListParams(filters, mode))
-      setPosts(nextPosts)
+      const nextPage = await fetchPostsPage({
+        ...buildPostListParams(filters, mode),
+        page,
+        page_size: DEFAULT_PAGE_SIZE,
+      })
+
+      if (page > 1 && nextPage.total_pages > 0 && page > nextPage.total_pages) {
+        await loadPosts(filters, nextPage.total_pages)
+        return
+      }
+
+      setAppliedFilters(filters)
+      setPosts(nextPage.items)
+      setPagination({
+        page: nextPage.total_pages === 0 ? 1 : nextPage.page,
+        pageSize: nextPage.page_size,
+        totalCount: nextPage.total_count,
+        totalPages: nextPage.total_pages,
+      })
     } catch (error) {
       toast.error(getApiErrorMessage(error, '帖子列表加载失败，请稍后重试。'))
       setPosts([])
+      setPagination((current) => ({
+        ...current,
+        page: 1,
+        totalCount: 0,
+        totalPages: 0,
+      }))
     } finally {
       setIsLoading(false)
     }
   }
 
   async function handleApplyFilters() {
-    await loadPosts(filterDraft)
+    await loadPosts(filterDraft, 1)
   }
 
   async function handleResetFilters() {
     setFilterDraft(DEFAULT_FILTERS)
-    await loadPosts(DEFAULT_FILTERS)
+    await loadPosts(DEFAULT_FILTERS, 1)
+  }
+
+  async function handlePageChange(nextPage: number) {
+    if (nextPage < 1 || nextPage === pagination.page || isLoading) {
+      return
+    }
+
+    await loadPosts(appliedFilters, nextPage)
   }
 
   async function handleCopyLink(post: PostResponse) {
@@ -221,12 +288,13 @@ export default function PostWorkspace({ mode }: PostWorkspaceProps) {
     setIsSubmittingAction(true)
 
     try {
-      const nextPost =
-        mode === 'archived'
-          ? await unarchivePost(actionTargetPost.id)
-          : await archivePost(actionTargetPost.id)
+      if (mode === 'archived') {
+        await unarchivePost(actionTargetPost.id)
+      } else {
+        await archivePost(actionTargetPost.id)
+      }
 
-      setPosts((currentPosts) => currentPosts.filter((post) => post.id !== nextPost.id))
+      await loadPosts(appliedFilters, pagination.page)
       setActionTargetPost(null)
       toast.success(copy.actionSuccessMessage)
     } catch (error) {
@@ -239,7 +307,7 @@ export default function PostWorkspace({ mode }: PostWorkspaceProps) {
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-end text-sm font-medium text-slate-700">
-        {posts.length} 条帖子
+        {pagination.totalCount} 条帖子
       </div>
 
       <div className="border border-slate-200 bg-white">
@@ -260,6 +328,15 @@ export default function PostWorkspace({ mode }: PostWorkspaceProps) {
           onCopyLink={handleCopyLink}
           onEditNote={handleOpenNoteModal}
           onAction={handleOpenActionModal}
+        />
+
+        <PaginationControls
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          totalCount={pagination.totalCount}
+          totalPages={pagination.totalPages}
+          isLoading={isLoading}
+          onPageChange={(nextPage) => void handlePageChange(nextPage)}
         />
       </div>
 

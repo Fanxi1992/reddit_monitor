@@ -49,7 +49,7 @@ def create_post(
 
 @router.get(
     "/",
-    response_model=list[schemas.PostResponse],
+    response_model=list[schemas.PostResponse] | schemas.PostPageResponse,
     summary="获取帖子列表，可按客户 ID 筛选",
 )
 def get_posts(
@@ -89,6 +89,17 @@ def get_posts(
         default=False,
         description="是否只返回未分配客户的帖子。为 true 时优先于 client_id。",
     ),
+    page: int | None = Query(
+        default=None,
+        ge=1,
+        description="页码。传入后启用分页；未传时保持旧数组响应。",
+    ),
+    page_size: int | None = Query(
+        default=None,
+        ge=1,
+        le=100,
+        description="每页数量。默认 30，最大 100。",
+    ),
     db: Session = Depends(get_db),
 ):
     """
@@ -111,12 +122,14 @@ def get_posts(
         comments_filter=comments_filter,
         client_keyword=client_keyword,
         title_keyword=title_keyword,
+        page=page,
+        page_size=page_size,
     )
 
 
 @router.get(
     "/retention",
-    response_model=list[schemas.PostRetentionRowResponse],
+    response_model=list[schemas.PostRetentionRowResponse] | schemas.PostRetentionPageResponse,
     summary="获取帖子留存总表数据",
 )
 def get_retention_posts(
@@ -136,6 +149,17 @@ def get_retention_posts(
         default=None,
         description="帖子标题关键词，按部分匹配筛选",
     ),
+    page: int | None = Query(
+        default=None,
+        ge=1,
+        description="页码。传入后启用分页。",
+    ),
+    page_size: int | None = Query(
+        default=None,
+        ge=1,
+        le=100,
+        description="每页数量。默认 30，最大 100。",
+    ),
     db: Session = Depends(get_db),
 ):
     """
@@ -153,6 +177,8 @@ def get_retention_posts(
         post_type=post_type,
         client_keyword=client_keyword,
         title_keyword=title_keyword,
+        page=page,
+        page_size=page_size,
     )
 
 

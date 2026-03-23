@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 
 import {
+  DEFAULT_PAGE_SIZE,
   fetchPostRetentionHistory,
-  fetchRetentionPosts,
+  fetchRetentionPostsPage,
   getApiErrorMessage,
   type PostRetentionHistoryResponse,
   type PostRetentionListParams,
   type PostRetentionRowResponse,
 } from '../api/client'
+import PaginationControls from '../components/PaginationControls'
 import PostRetentionFilters, {
   type PostRetentionFilterDraft,
 } from '../components/PostRetentionFilters'
@@ -22,6 +24,13 @@ const DEFAULT_FILTERS: PostRetentionFilterDraft = {
   title_keyword: '',
 }
 
+interface PaginationState {
+  page: number
+  pageSize: number
+  totalCount: number
+  totalPages: number
+}
+
 function buildRetentionListParams(
   filters: PostRetentionFilterDraft,
 ): PostRetentionListParams {
@@ -33,9 +42,20 @@ function buildRetentionListParams(
   }
 }
 
+function createDefaultPaginationState(): PaginationState {
+  return {
+    page: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
+    totalCount: 0,
+    totalPages: 0,
+  }
+}
+
 export default function PostRetention() {
   const [rows, setRows] = useState<PostRetentionRowResponse[]>([])
   const [filterDraft, setFilterDraft] = useState<PostRetentionFilterDraft>(DEFAULT_FILTERS)
+  const [appliedFilters, setAppliedFilters] = useState<PostRetentionFilterDraft>(DEFAULT_FILTERS)
+  const [pagination, setPagination] = useState<PaginationState>(createDefaultPaginationState)
   const [isLoading, setIsLoading] = useState(true)
   const [activeHistoryRow, setActiveHistoryRow] = useState<PostRetentionRowResponse | null>(null)
   const [history, setHistory] = useState<PostRetentionHistoryResponse | null>(null)
@@ -43,7 +63,46 @@ export default function PostRetention() {
   const [historyErrorMessage, setHistoryErrorMessage] = useState('')
 
   useEffect(() => {
-    void loadRows(DEFAULT_FILTERS)
+    let isCancelled = false
+
+    async function initializeRetention() {
+      setIsLoading(true)
+
+      try {
+        const nextPage = await fetchRetentionPostsPage({
+          ...buildRetentionListParams(DEFAULT_FILTERS),
+          page: 1,
+          page_size: DEFAULT_PAGE_SIZE,
+        })
+
+        if (!isCancelled) {
+          setAppliedFilters(DEFAULT_FILTERS)
+          setRows(nextPage.items)
+          setPagination({
+            page: nextPage.total_pages === 0 ? 1 : nextPage.page,
+            pageSize: nextPage.page_size,
+            totalCount: nextPage.total_count,
+            totalPages: nextPage.total_pages,
+          })
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          toast.error(getApiErrorMessage(error, '帖子留存列表加载失败，请稍后重试。'))
+          setRows([])
+          setPagination(createDefaultPaginationState())
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void initializeRetention()
+
+    return () => {
+      isCancelled = true
+    }
   }, [])
 
   function updateFilterDraft<Key extends keyof PostRetentionFilterDraft>(
@@ -56,27 +115,61 @@ export default function PostRetention() {
     }))
   }
 
-  async function loadRows(filters: PostRetentionFilterDraft) {
+  async function loadRows(
+    filters: PostRetentionFilterDraft,
+    page: number,
+  ) {
     setIsLoading(true)
 
     try {
-      const nextRows = await fetchRetentionPosts(buildRetentionListParams(filters))
-      setRows(nextRows)
+      const nextPage = await fetchRetentionPostsPage({
+        ...buildRetentionListParams(filters),
+        page,
+        page_size: DEFAULT_PAGE_SIZE,
+      })
+
+      if (page > 1 && nextPage.total_pages > 0 && page > nextPage.total_pages) {
+        await loadRows(filters, nextPage.total_pages)
+        return
+      }
+
+      setAppliedFilters(filters)
+      setRows(nextPage.items)
+      setPagination({
+        page: nextPage.total_pages === 0 ? 1 : nextPage.page,
+        pageSize: nextPage.page_size,
+        totalCount: nextPage.total_count,
+        totalPages: nextPage.total_pages,
+      })
     } catch (error) {
       toast.error(getApiErrorMessage(error, '帖子留存列表加载失败，请稍后重试。'))
       setRows([])
+      setPagination((current) => ({
+        ...current,
+        page: 1,
+        totalCount: 0,
+        totalPages: 0,
+      }))
     } finally {
       setIsLoading(false)
     }
   }
 
   async function handleApplyFilters() {
-    await loadRows(filterDraft)
+    await loadRows(filterDraft, 1)
   }
 
   async function handleResetFilters() {
     setFilterDraft(DEFAULT_FILTERS)
-    await loadRows(DEFAULT_FILTERS)
+    await loadRows(DEFAULT_FILTERS, 1)
+  }
+
+  async function handlePageChange(nextPage: number) {
+    if (nextPage < 1 || nextPage === pagination.page || isLoading) {
+      return
+    }
+
+    await loadRows(appliedFilters, nextPage)
   }
 
   async function handleOpenHistory(row: PostRetentionRowResponse) {
@@ -101,7 +194,7 @@ export default function PostRetention() {
         <div>
           <h3 className="text-2xl font-bold tracking-tight text-slate-950">帖子留存</h3>
           <p className="mt-1 text-sm leading-6 text-slate-500">
-            每日自动截图监控帖子状态 · 共 {rows.length} 条记录
+            每日自动截图监控帖子状态 · 共 {pagination.totalCount} 条记录
           </p>
         </div>
 
@@ -132,6 +225,15 @@ export default function PostRetention() {
           rows={rows}
           isLoading={isLoading}
           onOpenHistory={handleOpenHistory}
+        />
+
+        <PaginationControls
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          totalCount={pagination.totalCount}
+          totalPages={pagination.totalPages}
+          isLoading={isLoading}
+          onPageChange={(nextPage) => void handlePageChange(nextPage)}
         />
       </div>
 

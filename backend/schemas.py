@@ -103,6 +103,21 @@ class PostResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PostPageResponse(BaseModel):
+    """
+    帖子列表的分页响应。
+
+    仅在前端显式传入分页参数时使用，
+    这样可以兼容旧看板当前仍依赖的数组响应。
+    """
+
+    items: list[PostResponse]
+    total_count: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
 class NoteUpdate(BaseModel):
     """
     更新运营备注时的请求体。
@@ -174,6 +189,18 @@ class PostRetentionRowResponse(BaseModel):
     latest_screenshot_captured_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PostRetentionPageResponse(BaseModel):
+    """
+    帖子留存总表的分页响应。
+    """
+
+    items: list[PostRetentionRowResponse]
+    total_count: int
+    page: int
+    page_size: int
+    total_pages: int
 
 
 class PostRetentionHistoryResponse(BaseModel):

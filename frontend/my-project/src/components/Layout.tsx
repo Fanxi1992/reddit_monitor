@@ -2,11 +2,8 @@ import {
   Archive,
   BellDot,
   Camera,
-  ChartNoAxesCombined,
-  FilePlus2,
   LayoutGrid,
   Plus,
-  ShieldCheck,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
