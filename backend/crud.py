@@ -18,6 +18,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -31,6 +32,13 @@ POST_STATUS_FILTER_VALUES = {
     POST_STATUS_FILTER_ALL,
     POST_STATUS_FILTER_NORMAL,
     POST_STATUS_FILTER_BAN,
+}
+
+POST_METRIC_FILTER_ALL = "all"
+POST_METRIC_FILTER_THRESHOLD_MAP = {
+    "lte_5": 5,
+    "lte_10": 10,
+    "lte_15": 15,
 }
 
 
@@ -370,6 +378,29 @@ def normalize_operator_note(note: str | None) -> str | None:
     return cleaned_note or None
 
 
+def resolve_metric_filter_threshold(filter_value: str | None, field_name: str) -> int | None:
+    """
+    解析点赞/评论阈值筛选。
+
+    约定：
+    1. all 表示不启用该项筛选。
+    2. lte_5 / lte_10 / lte_15 分别映射到 <= 5 / 10 / 15。
+    """
+
+    normalized_filter_value = (filter_value or POST_METRIC_FILTER_ALL).strip().lower()
+    if normalized_filter_value == POST_METRIC_FILTER_ALL:
+        return None
+
+    threshold = POST_METRIC_FILTER_THRESHOLD_MAP.get(normalized_filter_value)
+    if threshold is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{field_name} 仅支持 all、lte_5、lte_10、lte_15。",
+        )
+
+    return threshold
+
+
 def get_client_or_404(db: Session, client_id: int) -> models.Client:
     """
     根据主键获取客户主数据。
@@ -545,6 +576,8 @@ def get_posts(
     archived: bool = False,
     status_filter: str = POST_STATUS_FILTER_ALL,
     post_type: str = "all",
+    upvotes_filter: str = POST_METRIC_FILTER_ALL,
+    comments_filter: str = POST_METRIC_FILTER_ALL,
     client_keyword: str | None = None,
     title_keyword: str | None = None,
 ) -> list[models.Post]:
@@ -555,7 +588,7 @@ def get_posts(
     1. 支持按 client_id 精确筛选。
     2. 支持按“未分配客户”筛选。
     3. 支持按是否归档分区，默认只返回未归档帖子。
-    4. 支持按状态、类型、客户关键词、标题关键词做服务端筛选。
+    4. 支持按状态、类型、点赞、评论、客户关键词、标题关键词做服务端筛选。
     5. 默认通过 joinedload 一次性带出客户主数据。
     6. 按 created_at 倒序返回，确保最新登记的帖子排在最前面。
     """
@@ -580,6 +613,15 @@ def get_posts(
             detail="post_type 仅支持 all、原创、代发、其他。",
         )
 
+    upvotes_threshold = resolve_metric_filter_threshold(
+        upvotes_filter,
+        "upvotes_filter",
+    )
+    comments_threshold = resolve_metric_filter_threshold(
+        comments_filter,
+        "comments_filter",
+    )
+
     if unassigned:
         query = query.filter(models.Post.client_id.is_(None))
     elif client_id is not None:
@@ -592,6 +634,14 @@ def get_posts(
 
     if normalized_post_type != "all":
         query = query.filter(models.Post.post_type == normalized_post_type)
+
+    if upvotes_threshold is not None:
+        query = query.filter(func.coalesce(models.Post.latest_upvotes, 0) <= upvotes_threshold)
+
+    if comments_threshold is not None:
+        query = query.filter(
+            func.coalesce(models.Post.latest_comments, 0) <= comments_threshold
+        )
 
     normalized_client_keyword = (client_keyword or "").strip()
     if normalized_client_keyword:

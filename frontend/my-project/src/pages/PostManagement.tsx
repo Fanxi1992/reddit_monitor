@@ -20,6 +20,8 @@ const MAX_NOTE_LENGTH = 300
 const DEFAULT_FILTERS: PostManagementFilterDraft = {
   status_filter: 'all',
   post_type: 'all',
+  upvotes_filter: 'all',
+  comments_filter: 'all',
   client_keyword: '',
   title_keyword: '',
 }
@@ -29,6 +31,8 @@ function buildPostListParams(filters: PostManagementFilterDraft): PostListParams
     archived: false,
     status_filter: filters.status_filter,
     post_type: filters.post_type,
+    upvotes_filter: filters.upvotes_filter,
+    comments_filter: filters.comments_filter,
     client_keyword: filters.client_keyword.trim() || undefined,
     title_keyword: filters.title_keyword.trim() || undefined,
   }

@@ -1,4 +1,5 @@
 import {
+  POST_METRIC_FILTER_OPTIONS,
   POST_STATUS_FILTER_OPTIONS,
   POST_TYPE_FILTER_OPTIONS,
   type PostListParams,
@@ -7,6 +8,8 @@ import {
 export interface PostManagementFilterDraft {
   status_filter: NonNullable<PostListParams['status_filter']>
   post_type: NonNullable<PostListParams['post_type']>
+  upvotes_filter: NonNullable<PostListParams['upvotes_filter']>
+  comments_filter: NonNullable<PostListParams['comments_filter']>
   client_keyword: string
   title_keyword: string
 }
@@ -31,7 +34,7 @@ export default function PostManagementFilters({
 }: PostManagementFiltersProps) {
   return (
     <form
-      className="grid gap-3 xl:grid-cols-[120px_132px_minmax(0,220px)_minmax(0,260px)_112px_112px]"
+      className="grid gap-3 xl:grid-cols-[120px_132px_132px_132px_minmax(0,200px)_minmax(0,240px)_112px_112px]"
       onSubmit={(event) => {
         event.preventDefault()
         onApply()
@@ -60,6 +63,40 @@ export default function PostManagementFilters({
           className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
         >
           {POST_TYPE_FILTER_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="space-y-1">
+        <span className="text-xs font-semibold text-slate-700">点赞筛选</span>
+        <select
+          value={value.upvotes_filter}
+          onChange={(event) =>
+            onChange('upvotes_filter', event.target.value as PostManagementFilterDraft['upvotes_filter'])
+          }
+          className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+        >
+          {POST_METRIC_FILTER_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="space-y-1">
+        <span className="text-xs font-semibold text-slate-700">评论筛选</span>
+        <select
+          value={value.comments_filter}
+          onChange={(event) =>
+            onChange('comments_filter', event.target.value as PostManagementFilterDraft['comments_filter'])
+          }
+          className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+        >
+          {POST_METRIC_FILTER_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

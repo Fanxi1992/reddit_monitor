@@ -11,6 +11,7 @@ export const BACKEND_ASSET_BASE_URL =
 export type PostType = '原创' | '代发' | '其他'
 export type PostStatusFilter = 'all' | 'normal' | 'ban'
 export type PostTypeFilter = 'all' | PostType
+export type PostMetricFilter = 'all' | 'lte_5' | 'lte_10' | 'lte_15'
 
 export const POST_TYPE_OPTIONS: PostType[] = ['原创', '代发', '其他']
 export const POST_STATUS_FILTER_OPTIONS: Array<{
@@ -29,6 +30,15 @@ export const POST_TYPE_FILTER_OPTIONS: Array<{
   { label: '原创', value: '原创' },
   { label: '代发', value: '代发' },
   { label: '其他', value: '其他' },
+]
+export const POST_METRIC_FILTER_OPTIONS: Array<{
+  label: string
+  value: PostMetricFilter
+}> = [
+  { label: '全部', value: 'all' },
+  { label: '小于等于 5', value: 'lte_5' },
+  { label: '小于等于 10', value: 'lte_10' },
+  { label: '小于等于 15', value: 'lte_15' },
 ]
 
 export const apiClient = axios.create({
@@ -94,6 +104,8 @@ export interface PostListParams {
   unassigned?: boolean
   status_filter?: PostStatusFilter
   post_type?: PostTypeFilter
+  upvotes_filter?: PostMetricFilter
+  comments_filter?: PostMetricFilter
   client_keyword?: string
   title_keyword?: string
 }

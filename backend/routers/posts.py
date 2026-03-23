@@ -65,6 +65,14 @@ def get_posts(
         default="all",
         description="帖子类型筛选：all / 原创 / 代发 / 其他",
     ),
+    upvotes_filter: Literal["all", "lte_5", "lte_10", "lte_15"] = Query(
+        default="all",
+        description="点赞筛选：all / lte_5 / lte_10 / lte_15。筛选时 NULL 视为 0。",
+    ),
+    comments_filter: Literal["all", "lte_5", "lte_10", "lte_15"] = Query(
+        default="all",
+        description="评论筛选：all / lte_5 / lte_10 / lte_15。筛选时 NULL 视为 0。",
+    ),
     client_keyword: str | None = Query(
         default=None,
         description="客户名称关键词，按部分匹配筛选",
@@ -99,6 +107,8 @@ def get_posts(
         unassigned=unassigned,
         status_filter=status_filter,
         post_type=post_type,
+        upvotes_filter=upvotes_filter,
+        comments_filter=comments_filter,
         client_keyword=client_keyword,
         title_keyword=title_keyword,
     )
