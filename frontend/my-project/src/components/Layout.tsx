@@ -186,44 +186,44 @@ export default function Layout() {
   )
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#eef4ff_0%,#f8fbff_100%)] text-slate-900">
-      <aside className="hidden lg:fixed lg:inset-y-6 lg:left-6 lg:flex lg:w-[300px] lg:flex-col lg:overflow-hidden lg:rounded-[32px] lg:border lg:border-white/8 lg:bg-[linear-gradient(180deg,#111a2f_0%,#1a253d_100%)] lg:shadow-[0_30px_100px_rgba(15,23,42,0.35)]">
+    <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-[276px] lg:flex-col lg:overflow-hidden lg:bg-[linear-gradient(180deg,#111a2f_0%,#1a253d_100%)]">
         {sidebarContent}
       </aside>
 
-      <div className="px-4 py-4 lg:ml-[330px] lg:px-6 lg:py-6">
-        <aside className="mb-4 overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,#111a2f_0%,#1a253d_100%)] text-white shadow-[0_24px_70px_rgba(15,23,42,0.25)] lg:hidden">
+      <div className="lg:ml-[276px]">
+        <aside className="overflow-hidden border-b border-white/10 bg-[linear-gradient(180deg,#111a2f_0%,#1a253d_100%)] text-white lg:hidden">
           {sidebarContent}
         </aside>
 
-        <div className="min-h-[calc(100vh-3rem)] rounded-[32px] border border-white/70 bg-[rgba(255,255,255,0.78)] p-4 shadow-[0_24px_90px_rgba(148,163,184,0.16)] backdrop-blur lg:p-6">
-          <header className="rounded-[28px] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_14px_40px_rgba(15,23,42,0.05)]">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-h-screen bg-white">
+          <header className="border-b border-slate-200 bg-white px-6 py-4">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.32em] text-blue-600/80">
                   {currentMeta.eyebrow}
                 </p>
-                <h2 className="mt-3 text-[2rem] font-bold tracking-tight text-slate-950">
+                <h2 className="mt-1.5 text-[1.95rem] font-bold tracking-tight text-slate-950">
                   {currentMeta.title}
                 </h2>
-                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
                   {currentMeta.description}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+              <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5">
                 <div className="flex items-center gap-2 text-sm font-medium text-blue-900">
                   <ShieldCheck className="h-4 w-4" />
                   新后台结构已接入
                 </div>
-                <p className="mt-1.5 text-sm leading-6 text-blue-800/80">
+                <p className="mt-1 text-sm leading-5 text-blue-800/80">
                   当前处于迁移阶段，旧功能入口继续保留可用。
                 </p>
               </div>
             </div>
           </header>
 
-          <main className="mt-5 flex-1">
+          <main className="p-6">
             <Outlet />
           </main>
         </div>
