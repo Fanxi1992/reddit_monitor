@@ -475,6 +475,7 @@ export default function PostCard({
 
             <textarea
               rows={2}
+              maxLength={300}
               value={noteDraft}
               onChange={(event) => setNoteDraft(event.target.value)}
               placeholder="填写补赞、补评、处理策略或异常说明"

@@ -6,11 +6,20 @@ import { X } from 'lucide-react'
 interface ModalProps {
   open: boolean
   title?: string
+  description?: string
   onClose: () => void
   children: ReactNode
+  maxWidthClassName?: string
 }
 
-export default function Modal({ open, title, onClose, children }: ModalProps) {
+export default function Modal({
+  open,
+  title,
+  description,
+  onClose,
+  children,
+  maxWidthClassName = 'max-w-6xl',
+}: ModalProps) {
   useEffect(() => {
     if (!open) {
       return
@@ -46,7 +55,10 @@ export default function Modal({ open, title, onClose, children }: ModalProps) {
       aria-label={title ?? '弹窗'}
     >
       <div
-        className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,250,252,0.98)_100%)] shadow-[0_28px_100px_rgba(15,23,42,0.35)]"
+        className={[
+          'relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,250,252,0.98)_100%)] shadow-[0_28px_100px_rgba(15,23,42,0.35)]',
+          maxWidthClassName,
+        ].join(' ')}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-200/80 px-6 py-5">
@@ -54,9 +66,11 @@ export default function Modal({ open, title, onClose, children }: ModalProps) {
             {title ? (
               <h3 className="text-xl font-bold text-slate-900">{title}</h3>
             ) : null}
-            <p className="mt-1 text-sm text-slate-500">
-              这里展示系统已经成功留存到本地服务器的截图凭证。
-            </p>
+            {description ? (
+              <p className="mt-1 text-sm text-slate-500">
+                {description}
+              </p>
+            ) : null}
           </div>
 
           <button

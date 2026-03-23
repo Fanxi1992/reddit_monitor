@@ -9,8 +9,27 @@ export const BACKEND_ASSET_BASE_URL =
   import.meta.env.VITE_ASSET_BASE_URL?.trim() || ''
 
 export type PostType = '原创' | '代发' | '其他'
+export type PostStatusFilter = 'all' | 'normal' | 'ban'
+export type PostTypeFilter = 'all' | PostType
 
 export const POST_TYPE_OPTIONS: PostType[] = ['原创', '代发', '其他']
+export const POST_STATUS_FILTER_OPTIONS: Array<{
+  label: string
+  value: PostStatusFilter
+}> = [
+  { label: '全部', value: 'all' },
+  { label: 'Normal', value: 'normal' },
+  { label: 'Ban', value: 'ban' },
+]
+export const POST_TYPE_FILTER_OPTIONS: Array<{
+  label: string
+  value: PostTypeFilter
+}> = [
+  { label: '全部', value: 'all' },
+  { label: '原创', value: '原创' },
+  { label: '代发', value: '代发' },
+  { label: '其他', value: '其他' },
+]
 
 export const apiClient = axios.create({
   baseURL: BACKEND_BASE_URL,
@@ -67,6 +86,39 @@ export interface ScreenshotResponse {
 
 export interface NoteUpdatePayload {
   operator_note: string
+}
+
+export interface PostListParams {
+  client_id?: number
+  archived?: boolean
+  unassigned?: boolean
+  status_filter?: PostStatusFilter
+  post_type?: PostTypeFilter
+  client_keyword?: string
+  title_keyword?: string
+}
+
+export async function fetchPosts(params?: PostListParams) {
+  const response = await apiClient.get<PostResponse[]>('/posts/', { params })
+
+  if (!Array.isArray(response.data)) {
+    throw new Error('帖子列表响应格式异常。')
+  }
+
+  return response.data
+}
+
+export async function updatePostNote(
+  postId: number,
+  payload: NoteUpdatePayload,
+) {
+  const response = await apiClient.put<PostResponse>(`/posts/${postId}/note`, payload)
+  return response.data
+}
+
+export async function archivePost(postId: number) {
+  const response = await apiClient.post<PostResponse>(`/posts/${postId}/archive`)
+  return response.data
 }
 
 export function buildBackendAssetUrl(filePath: string) {

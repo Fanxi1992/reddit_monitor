@@ -10,6 +10,8 @@
 Router 保持轻量，业务规则都留在 crud.py 中统一维护。
 """
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
@@ -55,6 +57,22 @@ def get_posts(
         default=None,
         description="客户主数据 ID，传入后按该客户精确筛选",
     ),
+    status_filter: Literal["all", "normal", "ban"] = Query(
+        default="all",
+        description="帖子状态筛选：all / normal / ban",
+    ),
+    post_type: Literal["all", "原创", "代发", "其他"] = Query(
+        default="all",
+        description="帖子类型筛选：all / 原创 / 代发 / 其他",
+    ),
+    client_keyword: str | None = Query(
+        default=None,
+        description="客户名称关键词，按部分匹配筛选",
+    ),
+    title_keyword: str | None = Query(
+        default=None,
+        description="帖子标题关键词，按部分匹配筛选",
+    ),
     archived: bool = Query(
         default=False,
         description="是否返回归档帖子。默认 false，即只返回主工作区的未归档帖子。",
@@ -79,6 +97,10 @@ def get_posts(
         client_id=client_id,
         archived=archived,
         unassigned=unassigned,
+        status_filter=status_filter,
+        post_type=post_type,
+        client_keyword=client_keyword,
+        title_keyword=title_keyword,
     )
 
 

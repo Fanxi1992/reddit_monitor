@@ -345,6 +345,7 @@ export default function RegisterPost() {
             <span className="text-sm font-medium text-slate-700">运营备注</span>
             <textarea
               rows={6}
+              maxLength={300}
               value={formState.operator_note}
               onChange={(event) => updateField('operator_note', event.target.value)}
               placeholder="可填写已发、已补赞、发帖时段、补评论安排等运营信息"

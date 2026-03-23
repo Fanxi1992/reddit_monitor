@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ModulePlaceholder from './pages/ModulePlaceholder'
 import PostEntry from './pages/PostEntry'
+import PostManagement from './pages/PostManagement'
 import RegisterPost from './pages/RegisterPost'
 
 export default function App() {
@@ -29,13 +30,7 @@ export default function App() {
           <Route index element={<Navigate to="/post-management" replace />} />
           <Route
             path="/post-management"
-            element={
-              <ModulePlaceholder
-                eyebrow="Posts Workspace"
-                title="帖子管理"
-                description="这里将承接新版主工作台：帖子检索、状态过滤、最新评论数据、运营备注与行级操作，逐步替代旧版大卡片监控看板。"
-              />
-            }
+            element={<PostManagement />}
           />
           <Route
             path="/post-entry"

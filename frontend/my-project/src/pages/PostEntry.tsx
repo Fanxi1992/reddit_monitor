@@ -382,6 +382,7 @@ export default function PostEntry() {
             <span className="text-sm font-semibold text-slate-800">备注说明</span>
             <textarea
               rows={3}
+              maxLength={300}
               value={formState.operator_note}
               onChange={(event) => updateField('operator_note', event.target.value)}
               placeholder="添加运营备注、特殊说明等非结构化信息"

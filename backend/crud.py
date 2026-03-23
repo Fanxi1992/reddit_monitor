@@ -24,6 +24,16 @@ from sqlalchemy.orm import Session, joinedload
 from backend import models, schemas
 
 
+POST_STATUS_FILTER_ALL = "all"
+POST_STATUS_FILTER_NORMAL = "normal"
+POST_STATUS_FILTER_BAN = "ban"
+POST_STATUS_FILTER_VALUES = {
+    POST_STATUS_FILTER_ALL,
+    POST_STATUS_FILTER_NORMAL,
+    POST_STATUS_FILTER_BAN,
+}
+
+
 # Reddit 标准帖子详情页 URL 中的帖子 ID 提取规则。
 # 兼容示例：
 # - https://www.reddit.com/r/test/comments/1rsbzpl/post-title/
@@ -533,6 +543,10 @@ def get_posts(
     client_id: int | None = None,
     unassigned: bool = False,
     archived: bool = False,
+    status_filter: str = POST_STATUS_FILTER_ALL,
+    post_type: str = "all",
+    client_keyword: str | None = None,
+    title_keyword: str | None = None,
 ) -> list[models.Post]:
     """
     获取帖子列表。
@@ -541,8 +555,9 @@ def get_posts(
     1. 支持按 client_id 精确筛选。
     2. 支持按“未分配客户”筛选。
     3. 支持按是否归档分区，默认只返回未归档帖子。
-    4. 默认通过 joinedload 一次性带出客户主数据。
-    5. 按 created_at 倒序返回，确保最新登记的帖子排在最前面。
+    4. 支持按状态、类型、客户关键词、标题关键词做服务端筛选。
+    5. 默认通过 joinedload 一次性带出客户主数据。
+    6. 按 created_at 倒序返回，确保最新登记的帖子排在最前面。
     """
 
     query = (
@@ -551,10 +566,42 @@ def get_posts(
         .filter(models.Post.is_archived.is_(archived))
     )
 
+    normalized_status_filter = (status_filter or POST_STATUS_FILTER_ALL).strip().lower()
+    if normalized_status_filter not in POST_STATUS_FILTER_VALUES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="status_filter 仅支持 all、normal、ban。",
+        )
+
+    normalized_post_type = (post_type or "all").strip()
+    if normalized_post_type != "all" and normalized_post_type not in models.POST_TYPE_VALUES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="post_type 仅支持 all、原创、代发、其他。",
+        )
+
     if unassigned:
         query = query.filter(models.Post.client_id.is_(None))
     elif client_id is not None:
         query = query.filter(models.Post.client_id == client_id)
+
+    if normalized_status_filter == POST_STATUS_FILTER_NORMAL:
+        query = query.filter(models.Post.status == "Active")
+    elif normalized_status_filter == POST_STATUS_FILTER_BAN:
+        query = query.filter(models.Post.status == "Removed")
+
+    if normalized_post_type != "all":
+        query = query.filter(models.Post.post_type == normalized_post_type)
+
+    normalized_client_keyword = (client_keyword or "").strip()
+    if normalized_client_keyword:
+        query = query.join(models.Post.client).filter(
+            models.Client.name.ilike(f"%{normalized_client_keyword}%")
+        )
+
+    normalized_title_keyword = (title_keyword or "").strip()
+    if normalized_title_keyword:
+        query = query.filter(models.Post.title.ilike(f"%{normalized_title_keyword}%"))
 
     return query.order_by(models.Post.created_at.desc()).all()
 

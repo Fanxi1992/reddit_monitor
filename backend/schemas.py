@@ -69,6 +69,7 @@ class PostCreate(BaseModel):
     )
     operator_note: Optional[str] = Field(
         default=None,
+        max_length=300,
         description="运营备注，允许为空",
     )
 
@@ -112,6 +113,7 @@ class NoteUpdate(BaseModel):
 
     operator_note: str = Field(
         default="",
+        max_length=300,
         description="新的完整备注内容，允许为空字符串",
     )
 
