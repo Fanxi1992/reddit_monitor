@@ -1,7 +1,16 @@
 import axios from 'axios'
 
-export const BACKEND_BASE_URL = 'http://127.0.0.1:8000/api'
-export const BACKEND_ORIGIN = new URL(BACKEND_BASE_URL).origin
+// 默认采用同域部署：
+// - /api 由 Nginx 反代给 FastAPI
+// - /static 由 Nginx 反代给 FastAPI 的静态文件挂载
+// 如有特殊环境，可用 Vite 环境变量覆盖。
+export const BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || '/api'
+export const BACKEND_ASSET_BASE_URL =
+  import.meta.env.VITE_ASSET_BASE_URL?.trim() || ''
+
+export type PostType = '原创' | '代发' | '其他'
+
+export const POST_TYPE_OPTIONS: PostType[] = ['原创', '代发', '其他']
 
 export const apiClient = axios.create({
   baseURL: BACKEND_BASE_URL,
@@ -25,6 +34,7 @@ export interface CreatePostPayload {
   url: string
   title: string
   client_id: number
+  post_type?: PostType
   operator_note: string | null
 }
 
@@ -33,6 +43,7 @@ export interface PostResponse {
   reddit_id: string
   url: string
   title: string
+  post_type: PostType
   client_id: number | null
   client_name: string | null
   operator_note: string | null
@@ -54,7 +65,21 @@ export interface NoteUpdatePayload {
 
 export function buildBackendAssetUrl(filePath: string) {
   const normalizedPath = filePath.replace(/^\/+/, '')
-  return `${BACKEND_ORIGIN}/${normalizedPath}`
+
+  if (/^https?:\/\//i.test(normalizedPath)) {
+    return normalizedPath
+  }
+
+  if (BACKEND_ASSET_BASE_URL) {
+    return new URL(
+      `/${normalizedPath}`,
+      BACKEND_ASSET_BASE_URL.endsWith('/')
+        ? BACKEND_ASSET_BASE_URL
+        : `${BACKEND_ASSET_BASE_URL}/`,
+    ).toString()
+  }
+
+  return `/${normalizedPath}`
 }
 
 export function getApiErrorMessage(

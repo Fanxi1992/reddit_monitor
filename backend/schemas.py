@@ -8,9 +8,21 @@ Pydantic 数据模型定义。
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from backend.models import (
+    POST_TYPE_GHOSTWRITTEN,
+    POST_TYPE_ORIGINAL,
+    POST_TYPE_OTHER,
+)
+
+PostTypeLiteral = Literal[
+    POST_TYPE_ORIGINAL,
+    POST_TYPE_GHOSTWRITTEN,
+    POST_TYPE_OTHER,
+]
 
 
 class ClientCreate(BaseModel):
@@ -51,6 +63,10 @@ class PostCreate(BaseModel):
     url: str = Field(..., description="运营人员录入的 Reddit 帖子链接")
     title: str = Field(..., description="帖子标题")
     client_id: int = Field(..., gt=0, description="客户主数据 ID")
+    post_type: PostTypeLiteral = Field(
+        default=POST_TYPE_OTHER,
+        description="帖子类型，可选：原创 / 代发 / 其他",
+    )
     operator_note: Optional[str] = Field(
         default=None,
         description="运营备注，允许为空",
@@ -69,6 +85,7 @@ class PostResponse(BaseModel):
     reddit_id: str
     url: str
     title: str
+    post_type: PostTypeLiteral
     client_id: Optional[int] = None
     client_name: Optional[str] = None
     operator_note: Optional[str] = None

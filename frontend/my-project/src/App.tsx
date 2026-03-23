@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ModulePlaceholder from './pages/ModulePlaceholder'
+import PostEntry from './pages/PostEntry'
 import RegisterPost from './pages/RegisterPost'
 
 export default function App() {
@@ -38,13 +39,7 @@ export default function App() {
           />
           <Route
             path="/post-entry"
-            element={
-              <ModulePlaceholder
-                eyebrow="Post Intake"
-                title="登记帖子"
-                description="这里将承接新版帖子录入流程。后续会把现有“登记新帖”页面的 URL 解析、查重、客户选择与备注录入能力逐步迁移过来。"
-              />
-            }
+            element={<PostEntry />}
           />
           <Route
             path="/post-archive"

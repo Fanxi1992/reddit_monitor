@@ -21,6 +21,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
 
 from backend.database import Base, engine
 from backend import models
@@ -48,6 +49,43 @@ def ensure_static_directories() -> None:
 ensure_static_directories()
 
 
+def ensure_runtime_schema() -> None:
+    """
+    为当前阶段补一层极简运行时兼容。
+
+    背景：
+    - 项目已经进入内部试用，数据库里可能已有旧版 posts 表。
+    - SQLAlchemy 的 create_all() 不会自动给现有表补新列。
+    - 本轮新增 post_type 字段，如果不补列，旧库启动后查询 posts 会直接报错。
+
+    当前策略：
+    仅在启动时检查 posts.post_type 是否存在；如果不存在，就自动补上，
+    并给历史数据填充默认值“其他”，从而保证新旧入口都能继续工作。
+    """
+
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+
+    if "posts" not in existing_tables:
+        return
+
+    existing_columns = {
+        column_definition["name"] for column_definition in inspector.get_columns("posts")
+    }
+    if "post_type" in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                ALTER TABLE posts
+                ADD COLUMN post_type VARCHAR(20) NOT NULL DEFAULT '其他'
+                """
+            )
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -64,6 +102,7 @@ async def lifespan(app: FastAPI):
     _ = models
     ensure_static_directories()
     Base.metadata.create_all(bind=engine)
+    ensure_runtime_schema()
     app.state.scheduler = start_scheduler()
     yield
     shutdown_scheduler()

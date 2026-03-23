@@ -104,9 +104,14 @@ export default function RegisterPost() {
 
     try {
       const response = await apiClient.get<ClientResponse[]>('/clients/')
+      if (!Array.isArray(response.data)) {
+        throw new Error('客户列表响应格式异常。')
+      }
+
       setClients(response.data)
     } catch (error) {
       toast.error(getApiErrorMessage(error, '客户列表加载失败，请稍后重试。'))
+      setClients([])
     } finally {
       setIsClientsLoading(false)
     }

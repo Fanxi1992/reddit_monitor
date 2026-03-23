@@ -484,6 +484,7 @@ def create_post(db: Session, post_in: schemas.PostCreate) -> models.Post:
         reddit_id=reddit_id,
         url=parsed_post_url.canonical_url,
         title=post_in.title.strip(),
+        post_type=post_in.post_type,
         client_id=client.id,
         operator_note=post_in.operator_note,
     )

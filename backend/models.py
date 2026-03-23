@@ -19,6 +19,15 @@ from sqlalchemy.orm import relationship
 
 from backend.database import Base
 
+POST_TYPE_ORIGINAL = "原创"
+POST_TYPE_GHOSTWRITTEN = "代发"
+POST_TYPE_OTHER = "其他"
+POST_TYPE_VALUES = (
+    POST_TYPE_ORIGINAL,
+    POST_TYPE_GHOSTWRITTEN,
+    POST_TYPE_OTHER,
+)
+
 
 def utc_now() -> datetime:
     """
@@ -57,6 +66,19 @@ class Post(Base):
     # 帖子标题。
     # 这里使用 String(500) 基本足够，既能覆盖常见场景，又不会过度浪费索引空间。
     title = Column(String(500), nullable=False)
+
+    # 帖子类型。
+    # 当前版本先固定三类：
+    # 1. 原创
+    # 2. 代发
+    # 3. 其他
+    # 该字段后续会在帖子管理、归档与留存页面中持续展示。
+    post_type = Column(
+        String(20),
+        nullable=False,
+        default=POST_TYPE_OTHER,
+        index=True,
+    )
 
     # 客户外键。
     # 这里不再直接保存自由文本客户名称，而是统一引用 clients 表中的主数据。

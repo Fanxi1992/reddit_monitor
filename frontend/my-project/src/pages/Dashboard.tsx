@@ -100,11 +100,15 @@ export default function Dashboard() {
       const response = await apiClient.get<PostResponse[]>('/posts/', {
         params: buildPostsQueryParams(selection),
       })
+      if (!Array.isArray(response.data)) {
+        throw new Error('帖子列表响应格式异常。')
+      }
 
       setPosts(response.data)
       setScreenshotRefreshVersion((currentVersion) => currentVersion + 1)
     } catch (error) {
       toast.error(getApiErrorMessage(error, '帖子列表加载失败，请稍后重试。'))
+      setPosts([])
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)
@@ -116,6 +120,9 @@ export default function Dashboard() {
 
     try {
       const clientsResponse = await apiClient.get<ClientResponse[]>('/clients/')
+      if (!Array.isArray(clientsResponse.data)) {
+        throw new Error('客户列表响应格式异常。')
+      }
       const nextClients = [...clientsResponse.data].sort((left, right) =>
         left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }),
       )
@@ -132,11 +139,16 @@ export default function Dashboard() {
       const postsResponse = await apiClient.get<PostResponse[]>('/posts/', {
         params: buildPostsQueryParams(defaultSelection),
       })
+      if (!Array.isArray(postsResponse.data)) {
+        throw new Error('帖子列表响应格式异常。')
+      }
 
       setPosts(postsResponse.data)
       setScreenshotRefreshVersion((currentVersion) => currentVersion + 1)
     } catch (error) {
       toast.error(getApiErrorMessage(error, '看板初始化失败，请稍后重试。'))
+      setClients([])
+      setPosts([])
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)
@@ -154,6 +166,9 @@ export default function Dashboard() {
 
     try {
       const clientsResponse = await apiClient.get<ClientResponse[]>('/clients/')
+      if (!Array.isArray(clientsResponse.data)) {
+        throw new Error('客户列表响应格式异常。')
+      }
       const nextClients = [...clientsResponse.data].sort((left, right) =>
         left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }),
       )
@@ -170,11 +185,16 @@ export default function Dashboard() {
       const postsResponse = await apiClient.get<PostResponse[]>('/posts/', {
         params: buildPostsQueryParams(nextSelection),
       })
+      if (!Array.isArray(postsResponse.data)) {
+        throw new Error('帖子列表响应格式异常。')
+      }
 
       setPosts(postsResponse.data)
       setScreenshotRefreshVersion((currentVersion) => currentVersion + 1)
     } catch (error) {
       toast.error(getApiErrorMessage(error, '帖子列表加载失败，请稍后重试。'))
+      setClients([])
+      setPosts([])
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)
