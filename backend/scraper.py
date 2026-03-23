@@ -18,6 +18,7 @@ Apify 抓取服务层。
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -43,6 +44,10 @@ SCREENSHOT_ACTOR_ID = "rGCyoaKTKhyMiiTvS"
 
 # 单次调用 Actor 时最多传入 30 个 URL，避免一个批次过大。
 MAX_URLS_PER_BATCH = 30
+
+# 单个截图批次内，下载与写盘最多并发 3 张。
+# 这里刻意保持低并发，先在不明显放大网络 / 磁盘 / 临时 URL 风险的前提下提速。
+MAX_SCREENSHOT_DOWNLOAD_WORKERS = 3
 
 # 本地截图存储目录。
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -291,6 +296,25 @@ def save_screenshot_file(image_bytes: bytes, post_id: int, day_mark: int) -> str
     return relative_path.as_posix()
 
 
+def download_and_save_screenshot(
+    screenshot_url: str,
+    post_id: int,
+    day_mark: int,
+) -> str:
+    """
+    下载并保存单张截图。
+
+    该函数会被批次内的线程池复用，用于做有限并发下载。
+    """
+
+    image_bytes = download_screenshot_binary(str(screenshot_url))
+    return save_screenshot_file(
+        image_bytes=image_bytes,
+        post_id=post_id,
+        day_mark=day_mark,
+    )
+
+
 def sync_post_screenshot_summaries(db: Session, post_ids: set[int]) -> None:
     """
     同步 posts 主表中的截图摘要字段。
@@ -465,6 +489,7 @@ def persist_screenshot_items(
     业务规则：
     1. 通过 item.startUrl 和 target.url 的完全匹配认领结果。
     2. screenshotUrl 一旦拿到，立即下载到本地 static/screenshots/。
+       同一批次内最多并发 3 张，避免完全串行导致整体耗时过长。
     3. 数据库只保存本地相对路径，不保存 Apify 临时链接。
     4. 同一条帖子在同一 day_mark 只保留一张成功截图。
     """
@@ -502,6 +527,7 @@ def persist_screenshot_items(
 
         screenshot_logs_to_insert: list[models.ScreenshotLog] = []
         written_file_paths: list[str] = []
+        pending_downloads: list[tuple[ScrapeTarget, int, str]] = []
 
         for item in items:
             start_url = item.get("startUrl")
@@ -537,32 +563,47 @@ def persist_screenshot_items(
                 )
                 continue
 
-            try:
-                image_bytes = download_screenshot_binary(str(screenshot_url))
-                file_path = save_screenshot_file(
-                    image_bytes=image_bytes,
-                    post_id=target.post_id,
-                    day_mark=day_mark,
-                )
-            except Exception as exc:  # noqa: BLE001 - 这里希望稳住整批任务
-                failed_downloads += 1
-                logger.warning(
-                    "帖子 %s 第 %s 天截图下载或保存失败：%s",
-                    target.post_id,
-                    day_mark,
-                    exc,
-                )
-                continue
-
-            screenshot_logs_to_insert.append(
-                models.ScreenshotLog(
-                    post_id=target.post_id,
-                    day_mark=day_mark,
-                    file_path=file_path,
-                )
-            )
-            written_file_paths.append(file_path)
             existing_keys.add(dedupe_key)
+            pending_downloads.append((target, day_mark, str(screenshot_url)))
+
+        if pending_downloads:
+            max_workers = min(
+                MAX_SCREENSHOT_DOWNLOAD_WORKERS,
+                len(pending_downloads),
+            )
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_download_meta = {
+                    executor.submit(
+                        download_and_save_screenshot,
+                        screenshot_url,
+                        target.post_id,
+                        day_mark,
+                    ): (target, day_mark)
+                    for target, day_mark, screenshot_url in pending_downloads
+                }
+
+                for future in as_completed(future_to_download_meta):
+                    target, day_mark = future_to_download_meta[future]
+                    try:
+                        file_path = future.result()
+                    except Exception as exc:  # noqa: BLE001 - 这里希望稳住整批任务
+                        failed_downloads += 1
+                        logger.warning(
+                            "帖子 %s 第 %s 天截图下载或保存失败：%s",
+                            target.post_id,
+                            day_mark,
+                            exc,
+                        )
+                        continue
+
+                    screenshot_logs_to_insert.append(
+                        models.ScreenshotLog(
+                            post_id=target.post_id,
+                            day_mark=day_mark,
+                            file_path=file_path,
+                        )
+                    )
+                    written_file_paths.append(file_path)
 
         if screenshot_logs_to_insert:
             try:
