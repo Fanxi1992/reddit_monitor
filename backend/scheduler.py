@@ -91,6 +91,7 @@ def load_active_targets_since(cutoff_datetime: datetime) -> list[ScrapeTarget]:
             db.query(models.Post)
             .filter(models.Post.created_at >= cutoff_datetime)
             .filter(models.Post.status != "Removed")
+            .filter(models.Post.is_archived.is_(False))
             .order_by(models.Post.created_at.desc())
             .all()
         )
@@ -122,6 +123,7 @@ def load_screenshot_targets() -> list[tuple[ScrapeTarget, int]]:
         posts = (
             db.query(models.Post)
             .filter(models.Post.status == "Active")
+            .filter(models.Post.is_archived.is_(False))
             .order_by(models.Post.created_at.desc())
             .all()
         )

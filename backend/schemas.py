@@ -89,7 +89,13 @@ class PostResponse(BaseModel):
     client_id: Optional[int] = None
     client_name: Optional[str] = None
     operator_note: Optional[str] = None
+    operator_note_updated_at: Optional[datetime] = None
     status: str
+    latest_upvotes: Optional[int] = None
+    latest_comments: Optional[int] = None
+    last_scraped_at: Optional[datetime] = None
+    is_archived: bool
+    archived_at: Optional[datetime] = None
     created_at: datetime
 
     # 允许直接把 SQLAlchemy ORM 对象转成 Pydantic 响应模型。

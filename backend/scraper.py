@@ -341,14 +341,28 @@ def persist_scraped_items(items: list[dict], target_map: dict[str, ScrapeTarget]
                 skipped_items += 1
                 continue
 
+            scraped_at = parse_scraped_at(item.get("scrapedAt"))
+            upvotes = int(item.get("upVotes") or 0)
+            comments = int(item.get("numberOfComments") or 0)
+
+            # posts 主表中额外维护“最新互动摘要”，
+            # 这样帖子管理页就不需要每次都去 tracking_logs 表里做二次检索。
+            if scraped_at:
+                post.latest_upvotes = upvotes
+                post.latest_comments = comments
+                post.last_scraped_at = scraped_at
+
             # 若正文被删，则反写帖子状态。
+            # 即使该条记录不写 tracking_logs，我们仍然希望主表状态及时变成 Removed。
             if item.get("body") == "[removed]":
                 if post.status != "Removed":
                     post.status = "Removed"
                     removed_posts += 1
+
+                # removed 状态已经反写完成，这类 item 不再进入 tracking_logs。
+                # 如果 scraped_at 缺失，主表“最近更新”可能不会被刷新，但 Removed 仍会生效。
                 continue
 
-            scraped_at = parse_scraped_at(item.get("scrapedAt"))
             if not scraped_at:
                 skipped_items += 1
                 continue
@@ -356,8 +370,8 @@ def persist_scraped_items(items: list[dict], target_map: dict[str, ScrapeTarget]
             tracking_logs_to_insert.append(
                 models.TrackingLog(
                     post_id=post.id,
-                    upvotes=int(item.get("upVotes") or 0),
-                    comments=int(item.get("numberOfComments") or 0),
+                    upvotes=upvotes,
+                    comments=comments,
                     scraped_at=scraped_at,
                 )
             )

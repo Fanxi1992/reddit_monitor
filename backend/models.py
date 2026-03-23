@@ -14,7 +14,7 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from backend.database import Base
@@ -96,9 +96,41 @@ class Post(Base):
     # “03/19 已发布；03/20 已补赞 50；03/21 已补评论 3 条”
     operator_note = Column(Text, nullable=True)
 
+    # 最近一次更新运营备注的时间。
+    # 注意这里存的是“纯时间戳”，而不是把时间戳直接拼进 operator_note 文本里。
+    # 这样做更符合开发实践：
+    # 1. 原始备注内容保持干净。
+    # 2. 前端可以按 UI 需要把它渲染成 [03/23 14:25] 这样的紧凑前缀。
+    # 3. 后续如果要调整展示格式，不需要回写数据库全文本。
+    operator_note_updated_at = Column(DateTime, nullable=True, index=True)
+
     # 帖子当前状态。
     # 默认 Active；若后续抓取发现正文为 [removed]，则更新为 Removed。
     status = Column(String(20), nullable=False, default="Active", index=True)
+
+    # 最近一次抓取到的点赞数。
+    # 这里允许为空，原因是：
+    # - 帖子刚登记进系统、但尚未触发任何抓取时，系统并不知道它是 0 还是别的值。
+    # - 因此主表层面用 NULL 表示“尚未抓到”，前端列表页再显示为 -- 更合理。
+    latest_upvotes = Column(Integer, nullable=True)
+
+    # 最近一次抓取到的评论数。
+    # 同 latest_upvotes，未抓取前保持 NULL。
+    latest_comments = Column(Integer, nullable=True)
+
+    # 最近一次成功抓取该帖子元数据的时间。
+    # 该字段会在每次 Apify 抓取成功后由后端回写，专门用于“帖子管理”列表页的
+    # “最近更新”列，不必每次都去 tracking_logs 表里做二次检索。
+    last_scraped_at = Column(DateTime, nullable=True, index=True)
+
+    # 是否已归档。
+    # True 表示该帖子已经从主工作区移出，转入“归档帖子”页面。
+    is_archived = Column(Boolean, nullable=False, default=False, index=True)
+
+    # 归档时间。
+    # 保留这个字段是为了后续在归档页中展示“何时被归档”，
+    # 同时也方便未来做操作审计。
+    archived_at = Column(DateTime, nullable=True, index=True)
 
     # 录入系统时间。
     # 这是后端调度逻辑的重要依据，用于判断帖子当前处于：
@@ -257,6 +289,11 @@ class ScreenshotLog(Base):
 # 为高频查询场景补充一个复合索引。
 # 后续最常见的查询之一，就是“按帖子 ID 读取它的全部时间序列，并按抓取时间排序”。
 Index("idx_tracking_logs_post_id_scraped_at", TrackingLog.post_id, TrackingLog.scraped_at)
+
+# “帖子管理 / 归档帖子”主列表页的最常见排序和过滤是：
+# 1. 先按是否归档分区
+# 2. 再按 created_at 倒序查看最新登记数据
+Index("idx_posts_is_archived_created_at", Post.is_archived, Post.created_at)
 
 # 同一条帖子在同一个 day_mark 只允许保留一张成功截图。
 Index(

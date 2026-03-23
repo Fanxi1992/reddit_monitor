@@ -47,7 +47,13 @@ export interface PostResponse {
   client_id: number | null
   client_name: string | null
   operator_note: string | null
+  operator_note_updated_at: string | null
   status: string
+  latest_upvotes: number | null
+  latest_comments: number | null
+  last_scraped_at: string | null
+  is_archived: boolean
+  archived_at: string | null
   created_at: string
 }
 

@@ -55,6 +55,10 @@ def get_posts(
         default=None,
         description="客户主数据 ID，传入后按该客户精确筛选",
     ),
+    archived: bool = Query(
+        default=False,
+        description="是否返回归档帖子。默认 false，即只返回主工作区的未归档帖子。",
+    ),
     unassigned: bool = Query(
         default=False,
         description="是否只返回未分配客户的帖子。为 true 时优先于 client_id。",
@@ -73,6 +77,7 @@ def get_posts(
     return crud.get_posts(
         db=db,
         client_id=client_id,
+        archived=archived,
         unassigned=unassigned,
     )
 
@@ -99,6 +104,42 @@ def update_operator_note(
         post_id=post_id,
         note_update=note_update,
     )
+
+
+@router.post(
+    "/{post_id}/archive",
+    response_model=schemas.PostResponse,
+    summary="归档帖子",
+)
+def archive_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    归档一条帖子。
+
+    归档后的帖子不会被删除，只会从主工作区移入“归档帖子”页面。
+    """
+
+    return crud.archive_post(db=db, post_id=post_id)
+
+
+@router.post(
+    "/{post_id}/unarchive",
+    response_model=schemas.PostResponse,
+    summary="取消归档帖子",
+)
+def unarchive_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    取消归档一条帖子。
+
+    该接口先预留出来，后续归档页可以直接复用。
+    """
+
+    return crud.unarchive_post(db=db, post_id=post_id)
 
 
 @router.get(

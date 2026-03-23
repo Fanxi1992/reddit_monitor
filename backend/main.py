@@ -22,6 +22,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
+from sqlalchemy.orm import sessionmaker
 
 from backend.database import Base, engine
 from backend import models
@@ -33,6 +34,7 @@ from backend.scheduler import shutdown_scheduler, start_scheduler
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATIC_DIR = PROJECT_ROOT / "static"
 SCREENSHOTS_DIR = STATIC_DIR / "screenshots"
+RuntimeSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def ensure_static_directories() -> None:
@@ -59,8 +61,8 @@ def ensure_runtime_schema() -> None:
     - 本轮新增 post_type 字段，如果不补列，旧库启动后查询 posts 会直接报错。
 
     当前策略：
-    仅在启动时检查 posts.post_type 是否存在；如果不存在，就自动补上，
-    并给历史数据填充默认值“其他”，从而保证新旧入口都能继续工作。
+    仅在启动时对 posts 主表补齐当前阶段高频展示所需的新列，
+    避免老库因为 create_all() 不会补列而直接启动失败。
     """
 
     inspector = inspect(engine)
@@ -72,18 +74,147 @@ def ensure_runtime_schema() -> None:
     existing_columns = {
         column_definition["name"] for column_definition in inspector.get_columns("posts")
     }
-    if "post_type" in existing_columns:
-        return
-
     with engine.begin() as connection:
-        connection.execute(
-            text(
-                """
-                ALTER TABLE posts
-                ADD COLUMN post_type VARCHAR(20) NOT NULL DEFAULT '其他'
-                """
+        if "post_type" not in existing_columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE posts
+                    ADD COLUMN post_type VARCHAR(20) NOT NULL DEFAULT '其他'
+                    """
+                )
             )
+
+        if "operator_note_updated_at" not in existing_columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE posts
+                    ADD COLUMN operator_note_updated_at DATETIME NULL
+                    """
+                )
+            )
+
+        if "latest_upvotes" not in existing_columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE posts
+                    ADD COLUMN latest_upvotes INT NULL
+                    """
+                )
+            )
+
+        if "latest_comments" not in existing_columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE posts
+                    ADD COLUMN latest_comments INT NULL
+                    """
+                )
+            )
+
+        if "last_scraped_at" not in existing_columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE posts
+                    ADD COLUMN last_scraped_at DATETIME NULL
+                    """
+                )
+            )
+
+        if "is_archived" not in existing_columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE posts
+                    ADD COLUMN is_archived BOOLEAN NOT NULL DEFAULT 0
+                    """
+                )
+            )
+
+        if "archived_at" not in existing_columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE posts
+                    ADD COLUMN archived_at DATETIME NULL
+                    """
+                )
+            )
+
+
+def backfill_post_summary_fields() -> None:
+    """
+    为历史数据补齐 posts 主表中的摘要字段。
+
+    背景：
+    - 当前项目已经有 tracking_logs 历史数据。
+    - 新版“帖子管理”页希望直接读 posts 主表中的最新点赞、评论和最近抓取时间。
+    - 因此对“仍为空”的摘要字段做一次温和回填，避免旧数据全部显示为 --。
+
+    注意：
+    1. 这里只回填为空的字段，不覆盖抓取引擎已经回写过的新值。
+    2. 如果某条帖子从未抓取过 tracking_logs，就保持 NULL。
+    """
+
+    db = RuntimeSessionLocal()
+    try:
+        candidate_posts = (
+            db.query(models.Post)
+            .filter(
+                (models.Post.last_scraped_at.is_(None))
+                | (models.Post.latest_upvotes.is_(None))
+                | (models.Post.latest_comments.is_(None))
+            )
+            .all()
         )
+
+        if not candidate_posts:
+            return
+
+        candidate_post_ids = [post.id for post in candidate_posts]
+        tracking_logs = (
+            db.query(models.TrackingLog)
+            .filter(models.TrackingLog.post_id.in_(candidate_post_ids))
+            .order_by(
+                models.TrackingLog.post_id.asc(),
+                models.TrackingLog.scraped_at.desc(),
+                models.TrackingLog.id.desc(),
+            )
+            .all()
+        )
+
+        latest_log_by_post_id: dict[int, models.TrackingLog] = {}
+        for tracking_log in tracking_logs:
+            latest_log_by_post_id.setdefault(tracking_log.post_id, tracking_log)
+
+        has_changes = False
+        for post in candidate_posts:
+            latest_log = latest_log_by_post_id.get(post.id)
+            if not latest_log:
+                continue
+
+            if post.last_scraped_at is None:
+                post.last_scraped_at = latest_log.scraped_at
+                has_changes = True
+
+            if post.latest_upvotes is None:
+                post.latest_upvotes = latest_log.upvotes
+                has_changes = True
+
+            if post.latest_comments is None:
+                post.latest_comments = latest_log.comments
+                has_changes = True
+
+        if has_changes:
+            db.commit()
+        else:
+            db.rollback()
+    finally:
+        db.close()
 
 
 @asynccontextmanager
@@ -103,6 +234,7 @@ async def lifespan(app: FastAPI):
     ensure_static_directories()
     Base.metadata.create_all(bind=engine)
     ensure_runtime_schema()
+    backfill_post_summary_fields()
     app.state.scheduler = start_scheduler()
     yield
     shutdown_scheduler()

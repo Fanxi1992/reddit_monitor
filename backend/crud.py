@@ -340,6 +340,26 @@ def normalize_client_name(name: str) -> str:
     return normalized_name
 
 
+def normalize_operator_note(note: str | None) -> str | None:
+    """
+    统一清洗运营备注内容。
+
+    处理规则：
+    1. 允许前端传 null 或空字符串。
+    2. 首尾空白会被去掉。
+    3. 清洗后若为空，则统一返回 None。
+
+    这样可以保证数据库层面对“没有备注”的表达保持一致，
+    同时也方便前端后续判断是否需要展示备注摘要和时间戳。
+    """
+
+    if note is None:
+        return None
+
+    cleaned_note = note.strip()
+    return cleaned_note or None
+
+
 def get_client_or_404(db: Session, client_id: int) -> models.Client:
     """
     根据主键获取客户主数据。
@@ -479,6 +499,7 @@ def create_post(db: Session, post_in: schemas.PostCreate) -> models.Post:
         )
 
     client = get_client_or_404(db, post_in.client_id)
+    normalized_operator_note = normalize_operator_note(post_in.operator_note)
 
     db_post = models.Post(
         reddit_id=reddit_id,
@@ -486,7 +507,8 @@ def create_post(db: Session, post_in: schemas.PostCreate) -> models.Post:
         title=post_in.title.strip(),
         post_type=post_in.post_type,
         client_id=client.id,
-        operator_note=post_in.operator_note,
+        operator_note=normalized_operator_note,
+        operator_note_updated_at=models.utc_now() if normalized_operator_note else None,
     )
 
     try:
@@ -510,6 +532,7 @@ def get_posts(
     db: Session,
     client_id: int | None = None,
     unassigned: bool = False,
+    archived: bool = False,
 ) -> list[models.Post]:
     """
     获取帖子列表。
@@ -517,11 +540,16 @@ def get_posts(
     规则：
     1. 支持按 client_id 精确筛选。
     2. 支持按“未分配客户”筛选。
-    3. 默认通过 joinedload 一次性带出客户主数据。
-    4. 按 created_at 倒序返回，确保最新登记的帖子排在最前面。
+    3. 支持按是否归档分区，默认只返回未归档帖子。
+    4. 默认通过 joinedload 一次性带出客户主数据。
+    5. 按 created_at 倒序返回，确保最新登记的帖子排在最前面。
     """
 
-    query = db.query(models.Post).options(joinedload(models.Post.client))
+    query = (
+        db.query(models.Post)
+        .options(joinedload(models.Post.client))
+        .filter(models.Post.is_archived.is_(archived))
+    )
 
     if unassigned:
         query = query.filter(models.Post.client_id.is_(None))
@@ -544,10 +572,53 @@ def update_operator_note(
     """
 
     post = get_post_or_404(db, post_id)
-    post.operator_note = note_update.operator_note
+    normalized_operator_note = normalize_operator_note(note_update.operator_note)
+    post.operator_note = normalized_operator_note
+    post.operator_note_updated_at = (
+        models.utc_now() if normalized_operator_note else None
+    )
 
     db.commit()
     db.refresh(post)
+    return get_post_or_404(db, post_id)
+
+
+def archive_post(db: Session, post_id: int) -> models.Post:
+    """
+    归档帖子。
+
+    业务语义：
+    1. 归档不是删除，帖子本体和全部历史数据都保留。
+    2. 归档后的帖子会从“帖子管理”主列表中消失，
+       并在后续进入“归档帖子”页面。
+    3. 归档时间会被记录到 archived_at，方便后续展示和审计。
+    """
+
+    post = get_post_or_404(db, post_id)
+    if not post.is_archived:
+        post.is_archived = True
+        post.archived_at = models.utc_now()
+        db.commit()
+        db.refresh(post)
+
+    return get_post_or_404(db, post_id)
+
+
+def unarchive_post(db: Session, post_id: int) -> models.Post:
+    """
+    取消归档帖子。
+
+    虽然当前前端还没启用“取消归档”按钮，
+    但后端先把能力留好，后续归档页可以直接复用。
+    """
+
+    post = get_post_or_404(db, post_id)
+    if post.is_archived:
+        post.is_archived = False
+        post.archived_at = None
+        db.commit()
+        db.refresh(post)
+
     return get_post_or_404(db, post_id)
 
 
