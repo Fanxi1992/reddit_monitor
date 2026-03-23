@@ -40,23 +40,6 @@ const navigationSections = [
       },
     ],
   },
-  {
-    title: '旧版可用',
-    items: [
-      {
-        to: '/register',
-        label: '登记新帖',
-        description: '当前仍可继续使用',
-        icon: FilePlus2,
-      },
-      {
-        to: '/dashboard',
-        label: '监控看板',
-        description: '旧版大卡片视图',
-        icon: ChartNoAxesCombined,
-      },
-    ],
-  },
 ] as const
 
 const pageMeta = {
@@ -211,15 +194,6 @@ export default function Layout() {
                 </p>
               </div>
 
-              <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5">
-                <div className="flex items-center gap-2 text-sm font-medium text-blue-900">
-                  <ShieldCheck className="h-4 w-4" />
-                  新后台结构已接入
-                </div>
-                <p className="mt-1 text-sm leading-5 text-blue-800/80">
-                  当前处于迁移阶段，旧功能入口继续保留可用。
-                </p>
-              </div>
             </div>
           </header>
 

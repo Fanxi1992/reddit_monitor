@@ -150,3 +150,39 @@ class ScreenshotResponse(BaseModel):
     captured_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PostRetentionRowResponse(BaseModel):
+    """
+    帖子留存总表中的单行摘要。
+
+    该结构专门服务于“帖子留存”页面，只返回列表展示真正需要的帖子基础信息
+    与截图留存摘要，不再混入点赞、评论、折线图等旧看板信息。
+    """
+
+    id: int
+    reddit_id: str
+    url: str
+    title: str
+    post_type: PostTypeLiteral
+    client_id: Optional[int] = None
+    client_name: Optional[str] = None
+    status: str
+    created_at: datetime
+    screenshot_count: int
+    latest_screenshot_day_mark: Optional[int] = None
+    latest_screenshot_captured_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PostRetentionHistoryResponse(BaseModel):
+    """
+    单条帖子在留存弹窗中的截图历史响应。
+
+    返回帖子标题与全部成功截图，前端会按后端已排好的倒序直接渲染。
+    """
+
+    post_id: int
+    title: str
+    screenshots: list[ScreenshotResponse]

@@ -275,6 +275,55 @@ def save_screenshot_file(image_bytes: bytes, post_id: int, day_mark: int) -> str
     return relative_path.as_posix()
 
 
+def sync_post_screenshot_summaries(db: Session, post_ids: set[int]) -> None:
+    """
+    同步 posts 主表中的截图摘要字段。
+
+    在截图成功写入 screenshot_logs 后，立即回写：
+    1. screenshot_count
+    2. latest_screenshot_day_mark
+    3. latest_screenshot_captured_at
+    """
+
+    if not post_ids:
+        return
+
+    screenshot_logs = (
+        db.query(models.ScreenshotLog)
+        .filter(models.ScreenshotLog.post_id.in_(list(post_ids)))
+        .order_by(
+            models.ScreenshotLog.post_id.asc(),
+            models.ScreenshotLog.captured_at.desc(),
+            models.ScreenshotLog.day_mark.desc(),
+            models.ScreenshotLog.id.desc(),
+        )
+        .all()
+    )
+
+    screenshot_count_by_post_id: dict[int, int] = {}
+    latest_screenshot_by_post_id: dict[int, models.ScreenshotLog] = {}
+    for screenshot_log in screenshot_logs:
+        screenshot_count_by_post_id[screenshot_log.post_id] = (
+            screenshot_count_by_post_id.get(screenshot_log.post_id, 0) + 1
+        )
+        latest_screenshot_by_post_id.setdefault(screenshot_log.post_id, screenshot_log)
+
+    posts = (
+        db.query(models.Post)
+        .filter(models.Post.id.in_(list(post_ids)))
+        .all()
+    )
+    for post in posts:
+        latest_screenshot = latest_screenshot_by_post_id.get(post.id)
+        post.screenshot_count = screenshot_count_by_post_id.get(post.id, 0)
+        post.latest_screenshot_day_mark = (
+            latest_screenshot.day_mark if latest_screenshot else None
+        )
+        post.latest_screenshot_captured_at = (
+            latest_screenshot.captured_at if latest_screenshot else None
+        )
+
+
 def delete_local_screenshot_file(relative_path: str) -> None:
     """
     删除本地截图文件。
@@ -502,6 +551,11 @@ def persist_screenshot_items(
         if screenshot_logs_to_insert:
             try:
                 db.add_all(screenshot_logs_to_insert)
+                db.flush()
+                sync_post_screenshot_summaries(
+                    db,
+                    {screenshot_log.post_id for screenshot_log in screenshot_logs_to_insert},
+                )
                 db.commit()
                 inserted_screenshots = len(screenshot_logs_to_insert)
             except IntegrityError as exc:

@@ -125,6 +125,36 @@ def ensure_runtime_schema() -> None:
                 )
             )
 
+        if "screenshot_count" not in existing_columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE posts
+                    ADD COLUMN screenshot_count INT NOT NULL DEFAULT 0
+                    """
+                )
+            )
+
+        if "latest_screenshot_day_mark" not in existing_columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE posts
+                    ADD COLUMN latest_screenshot_day_mark INT NULL
+                    """
+                )
+            )
+
+        if "latest_screenshot_captured_at" not in existing_columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE posts
+                    ADD COLUMN latest_screenshot_captured_at DATETIME NULL
+                    """
+                )
+            )
+
         if "is_archived" not in existing_columns:
             connection.execute(
                 text(
@@ -151,9 +181,9 @@ def backfill_post_summary_fields() -> None:
     为历史数据补齐 posts 主表中的摘要字段。
 
     背景：
-    - 当前项目已经有 tracking_logs 历史数据。
-    - 新版“帖子管理”页希望直接读 posts 主表中的最新点赞、评论和最近抓取时间。
-    - 因此对“仍为空”的摘要字段做一次温和回填，避免旧数据全部显示为 --。
+    - 当前项目已经有 tracking_logs / screenshot_logs 历史数据。
+    - 新版“帖子管理 / 帖子留存”页都希望直接读 posts 主表中的摘要字段。
+    - 因此在启动时统一做一次回填，避免旧数据展示异常。
 
     注意：
     1. 这里只回填为空的字段，不覆盖抓取引擎已经回写过的新值。
@@ -162,20 +192,11 @@ def backfill_post_summary_fields() -> None:
 
     db = RuntimeSessionLocal()
     try:
-        candidate_posts = (
-            db.query(models.Post)
-            .filter(
-                (models.Post.last_scraped_at.is_(None))
-                | (models.Post.latest_upvotes.is_(None))
-                | (models.Post.latest_comments.is_(None))
-            )
-            .all()
-        )
-
-        if not candidate_posts:
+        posts = db.query(models.Post).all()
+        if not posts:
             return
 
-        candidate_post_ids = [post.id for post in candidate_posts]
+        candidate_post_ids = [post.id for post in posts]
         tracking_logs = (
             db.query(models.TrackingLog)
             .filter(models.TrackingLog.post_id.in_(candidate_post_ids))
@@ -191,22 +212,60 @@ def backfill_post_summary_fields() -> None:
         for tracking_log in tracking_logs:
             latest_log_by_post_id.setdefault(tracking_log.post_id, tracking_log)
 
-        has_changes = False
-        for post in candidate_posts:
-            latest_log = latest_log_by_post_id.get(post.id)
-            if not latest_log:
-                continue
+        screenshot_logs = (
+            db.query(models.ScreenshotLog)
+            .filter(models.ScreenshotLog.post_id.in_(candidate_post_ids))
+            .order_by(
+                models.ScreenshotLog.post_id.asc(),
+                models.ScreenshotLog.captured_at.desc(),
+                models.ScreenshotLog.day_mark.desc(),
+                models.ScreenshotLog.id.desc(),
+            )
+            .all()
+        )
 
-            if post.last_scraped_at is None:
+        screenshot_count_by_post_id: dict[int, int] = {}
+        latest_screenshot_by_post_id: dict[int, models.ScreenshotLog] = {}
+        for screenshot_log in screenshot_logs:
+            screenshot_count_by_post_id[screenshot_log.post_id] = (
+                screenshot_count_by_post_id.get(screenshot_log.post_id, 0) + 1
+            )
+            latest_screenshot_by_post_id.setdefault(screenshot_log.post_id, screenshot_log)
+
+        has_changes = False
+        for post in posts:
+            latest_log = latest_log_by_post_id.get(post.id)
+            if latest_log and post.last_scraped_at is None:
                 post.last_scraped_at = latest_log.scraped_at
                 has_changes = True
 
-            if post.latest_upvotes is None:
+            if latest_log and post.latest_upvotes is None:
                 post.latest_upvotes = latest_log.upvotes
                 has_changes = True
 
-            if post.latest_comments is None:
+            if latest_log and post.latest_comments is None:
                 post.latest_comments = latest_log.comments
+                has_changes = True
+
+            screenshot_count = screenshot_count_by_post_id.get(post.id, 0)
+            latest_screenshot = latest_screenshot_by_post_id.get(post.id)
+            latest_screenshot_day_mark = (
+                latest_screenshot.day_mark if latest_screenshot else None
+            )
+            latest_screenshot_captured_at = (
+                latest_screenshot.captured_at if latest_screenshot else None
+            )
+
+            if post.screenshot_count != screenshot_count:
+                post.screenshot_count = screenshot_count
+                has_changes = True
+
+            if post.latest_screenshot_day_mark != latest_screenshot_day_mark:
+                post.latest_screenshot_day_mark = latest_screenshot_day_mark
+                has_changes = True
+
+            if post.latest_screenshot_captured_at != latest_screenshot_captured_at:
+                post.latest_screenshot_captured_at = latest_screenshot_captured_at
                 has_changes = True
 
         if has_changes:

@@ -123,6 +123,19 @@ class Post(Base):
     # “最近更新”列，不必每次都去 tracking_logs 表里做二次检索。
     last_scraped_at = Column(DateTime, nullable=True, index=True)
 
+    # 成功截图总数。
+    # 这是“帖子留存”总表最核心的摘要字段之一，用来快速展示该帖子当前已沉淀的
+    # 有效截图数量，避免每次列表查询都去 screenshot_logs 做聚合。
+    screenshot_count = Column(Integer, nullable=False, default=0)
+
+    # 最近一次成功截图对应的业务 day_mark。
+    # 例如 0 / 1 / 2 / 4 / 7，用于在“帖子留存”页状态旁直接展示“第 N 天”。
+    latest_screenshot_day_mark = Column(Integer, nullable=True, index=True)
+
+    # 最近一次成功截图的实际保存时间。
+    # 该字段主要用于回填、排障和后续可能的“按最新截图时间排序”场景。
+    latest_screenshot_captured_at = Column(DateTime, nullable=True, index=True)
+
     # 是否已归档。
     # True 表示该帖子已经从主工作区移出，转入“归档帖子”页面。
     is_archived = Column(Boolean, nullable=False, default=False, index=True)

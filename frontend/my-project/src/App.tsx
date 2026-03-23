@@ -3,10 +3,10 @@ import { Toaster } from 'react-hot-toast'
 
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
-import ModulePlaceholder from './pages/ModulePlaceholder'
 import PostArchive from './pages/PostArchive'
 import PostEntry from './pages/PostEntry'
 import PostManagement from './pages/PostManagement'
+import PostRetention from './pages/PostRetention'
 import RegisterPost from './pages/RegisterPost'
 
 export default function App() {
@@ -43,13 +43,7 @@ export default function App() {
           />
           <Route
             path="/post-retention"
-            element={
-              <ModulePlaceholder
-                eyebrow="Screenshot Archive"
-                title="帖子留存"
-                description="这里将承接截图留存与打钱凭证管理。后续会集中展示第 0 / 1 / 2 / 4 / 7 天的截图结果，支持筛选、预览与交付。"
-              />
-            }
+            element={<PostRetention />}
           />
           <Route path="/register" element={<RegisterPost />} />
           <Route path="/dashboard" element={<Dashboard />} />

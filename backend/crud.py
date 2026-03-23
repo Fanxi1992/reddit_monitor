@@ -656,6 +656,60 @@ def get_posts(
     return query.order_by(models.Post.created_at.desc()).all()
 
 
+def get_retention_posts(
+    db: Session,
+    status_filter: str = POST_STATUS_FILTER_ALL,
+    post_type: str = "all",
+    client_keyword: str | None = None,
+    title_keyword: str | None = None,
+) -> list[models.Post]:
+    """
+    获取帖子留存总表数据。
+
+    规则：
+    1. 默认覆盖全部帖子，不区分是否归档。
+    2. 仅支持状态、类型、客户关键词、标题关键词四类筛选。
+    3. 返回 posts 主表上的截图留存摘要字段，不再聚合互动指标。
+    4. 按 created_at 倒序返回，保持与新版后台主列表一致。
+    """
+
+    query = db.query(models.Post).options(joinedload(models.Post.client))
+
+    normalized_status_filter = (status_filter or POST_STATUS_FILTER_ALL).strip().lower()
+    if normalized_status_filter not in POST_STATUS_FILTER_VALUES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="status_filter 仅支持 all、normal、ban。",
+        )
+
+    normalized_post_type = (post_type or "all").strip()
+    if normalized_post_type != "all" and normalized_post_type not in models.POST_TYPE_VALUES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="post_type 仅支持 all、原创、代发、其他。",
+        )
+
+    if normalized_status_filter == POST_STATUS_FILTER_NORMAL:
+        query = query.filter(models.Post.status == "Active")
+    elif normalized_status_filter == POST_STATUS_FILTER_BAN:
+        query = query.filter(models.Post.status == "Removed")
+
+    if normalized_post_type != "all":
+        query = query.filter(models.Post.post_type == normalized_post_type)
+
+    normalized_client_keyword = (client_keyword or "").strip()
+    if normalized_client_keyword:
+        query = query.join(models.Post.client).filter(
+            models.Client.name.ilike(f"%{normalized_client_keyword}%")
+        )
+
+    normalized_title_keyword = (title_keyword or "").strip()
+    if normalized_title_keyword:
+        query = query.filter(models.Post.title.ilike(f"%{normalized_title_keyword}%"))
+
+    return query.order_by(models.Post.created_at.desc()).all()
+
+
 def update_operator_note(
     db: Session,
     post_id: int,
@@ -760,4 +814,39 @@ def get_post_screenshots(db: Session, post_id: int) -> list[models.ScreenshotLog
             models.ScreenshotLog.captured_at.asc(),
         )
         .all()
+    )
+
+
+def get_post_retention_history(
+    db: Session,
+    post_id: int,
+) -> schemas.PostRetentionHistoryResponse:
+    """
+    获取单条帖子的截图留存历史。
+
+    返回规则：
+    1. 若帖子不存在，返回 404。
+    2. 仅返回成功落库的截图记录。
+    3. 所有截图按 captured_at 倒序；若时间相同，再按 day_mark 与 id 倒序兜底。
+    """
+
+    post = get_post_or_404(db, post_id)
+    screenshots = (
+        db.query(models.ScreenshotLog)
+        .filter(models.ScreenshotLog.post_id == post_id)
+        .order_by(
+            models.ScreenshotLog.captured_at.desc(),
+            models.ScreenshotLog.day_mark.desc(),
+            models.ScreenshotLog.id.desc(),
+        )
+        .all()
+    )
+
+    return schemas.PostRetentionHistoryResponse(
+        post_id=post.id,
+        title=post.title,
+        screenshots=[
+            schemas.ScreenshotResponse.model_validate(screenshot)
+            for screenshot in screenshots
+        ],
     )

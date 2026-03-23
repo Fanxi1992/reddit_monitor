@@ -114,6 +114,48 @@ def get_posts(
     )
 
 
+@router.get(
+    "/retention",
+    response_model=list[schemas.PostRetentionRowResponse],
+    summary="获取帖子留存总表数据",
+)
+def get_retention_posts(
+    status_filter: Literal["all", "normal", "ban"] = Query(
+        default="all",
+        description="帖子状态筛选：all / normal / ban",
+    ),
+    post_type: Literal["all", "原创", "代发", "其他"] = Query(
+        default="all",
+        description="帖子类型筛选：all / 原创 / 代发 / 其他",
+    ),
+    client_keyword: str | None = Query(
+        default=None,
+        description="客户名称关键词，按部分匹配筛选",
+    ),
+    title_keyword: str | None = Query(
+        default=None,
+        description="帖子标题关键词，按部分匹配筛选",
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    获取帖子留存页主列表。
+
+    当前规则：
+    1. 默认覆盖全部帖子，不区分归档与否。
+    2. 只暴露状态、类型、客户、标题四类筛选。
+    3. 返回 posts 主表上的截图摘要字段。
+    """
+
+    return crud.get_retention_posts(
+        db=db,
+        status_filter=status_filter,
+        post_type=post_type,
+        client_keyword=client_keyword,
+        title_keyword=title_keyword,
+    )
+
+
 @router.put(
     "/{post_id}/note",
     response_model=schemas.PostResponse,
@@ -210,3 +252,22 @@ def get_post_screenshots(
     """
 
     return crud.get_post_screenshots(db=db, post_id=post_id)
+
+
+@router.get(
+    "/{post_id}/retention-history",
+    response_model=schemas.PostRetentionHistoryResponse,
+    summary="获取帖子的留存历史弹窗数据",
+)
+def get_post_retention_history(
+    post_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    获取单条帖子的截图历史。
+
+    返回数据专门服务于“帖子留存”页面的查看弹窗，
+    结果已按截图时间倒序排好。
+    """
+
+    return crud.get_post_retention_history(db=db, post_id=post_id)

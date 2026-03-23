@@ -94,6 +94,27 @@ export interface ScreenshotResponse {
   captured_at: string
 }
 
+export interface PostRetentionRowResponse {
+  id: number
+  reddit_id: string
+  url: string
+  title: string
+  post_type: PostType
+  client_id: number | null
+  client_name: string | null
+  status: string
+  created_at: string
+  screenshot_count: number
+  latest_screenshot_day_mark: number | null
+  latest_screenshot_captured_at: string | null
+}
+
+export interface PostRetentionHistoryResponse {
+  post_id: number
+  title: string
+  screenshots: ScreenshotResponse[]
+}
+
 export interface NoteUpdatePayload {
   operator_note: string
 }
@@ -110,11 +131,30 @@ export interface PostListParams {
   title_keyword?: string
 }
 
+export interface PostRetentionListParams {
+  status_filter?: PostStatusFilter
+  post_type?: PostTypeFilter
+  client_keyword?: string
+  title_keyword?: string
+}
+
 export async function fetchPosts(params?: PostListParams) {
   const response = await apiClient.get<PostResponse[]>('/posts/', { params })
 
   if (!Array.isArray(response.data)) {
     throw new Error('帖子列表响应格式异常。')
+  }
+
+  return response.data
+}
+
+export async function fetchRetentionPosts(params?: PostRetentionListParams) {
+  const response = await apiClient.get<PostRetentionRowResponse[]>('/posts/retention', {
+    params,
+  })
+
+  if (!Array.isArray(response.data)) {
+    throw new Error('帖子留存列表响应格式异常。')
   }
 
   return response.data
@@ -135,6 +175,13 @@ export async function archivePost(postId: number) {
 
 export async function unarchivePost(postId: number) {
   const response = await apiClient.post<PostResponse>(`/posts/${postId}/unarchive`)
+  return response.data
+}
+
+export async function fetchPostRetentionHistory(postId: number) {
+  const response = await apiClient.get<PostRetentionHistoryResponse>(
+    `/posts/${postId}/retention-history`,
+  )
   return response.data
 }
 
