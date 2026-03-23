@@ -107,17 +107,17 @@ export default function PostManagementTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-[1220px] w-full table-fixed border-collapse text-sm text-slate-700">
+      <table className="min-w-[1160px] w-full table-fixed border-collapse text-sm text-slate-700">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/70 text-left text-xs uppercase tracking-[0.14em] text-slate-500">
-            <th className="w-[84px] px-4 py-3 font-semibold">状态</th>
-            <th className="w-[94px] px-3 py-3 font-semibold">类型</th>
-            <th className="w-[180px] px-3 py-3 font-semibold">客户</th>
+            <th className="w-[58px] px-3 py-3 font-semibold">状态</th>
+            <th className="w-[72px] px-2 py-3 font-semibold">类型</th>
+            <th className="w-[112px] px-2 py-3 font-semibold">客户</th>
             <th className="w-[320px] px-3 py-3 font-semibold">标题</th>
             <th className="w-[108px] px-3 py-3 font-semibold">链接</th>
             <th className="w-[92px] px-3 py-3 font-semibold">点赞</th>
             <th className="w-[92px] px-3 py-3 font-semibold">评论</th>
-            <th className="w-[260px] px-3 py-3 font-semibold">运营备注</th>
+            <th className="w-[320px] px-3 py-3 font-semibold">运营备注</th>
             <th className="w-[150px] px-3 py-3 font-semibold">创建时间</th>
             <th className="w-[150px] px-3 py-3 font-semibold">最近更新</th>
             <th className="w-[104px] px-3 py-3 font-semibold">操作</th>
@@ -132,7 +132,7 @@ export default function PostManagementTable({
                 key={post.id}
                 className="border-b border-slate-200 last:border-b-0 hover:bg-slate-50/60"
               >
-                <td className="px-4 py-3">
+                <td className="px-3 py-3">
                   <span
                     className={[
                       'inline-block h-3 w-3 rounded-full',
@@ -141,8 +141,8 @@ export default function PostManagementTable({
                     title={isRemoved ? 'Ban' : 'Normal'}
                   />
                 </td>
-                <td className="px-3 py-3 font-medium text-slate-900">{post.post_type}</td>
-                <td className="px-3 py-3 text-slate-900" title={post.client_name ?? '未分配客户'}>
+                <td className="px-2 py-3 font-medium text-slate-900">{post.post_type}</td>
+                <td className="px-2 py-3 text-slate-900" title={post.client_name ?? '未分配客户'}>
                   <div className="truncate">{post.client_name ?? '未分配客户'}</div>
                 </td>
                 <td className="px-3 py-3 text-slate-900" title={post.title}>
