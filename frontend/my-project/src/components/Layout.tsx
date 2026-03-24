@@ -50,7 +50,7 @@ const pageMeta = {
   '/post-management': {
     eyebrow: 'Posts Workspace',
     title: '帖子管理',
-    description: '新版后台骨架已经接入。这里会成为帖子检索、状态处理与最新数据巡检的主工作台。',
+    description: '定时任务说明：每日 07:00 全面巡检，10:00、13:00、17:00、21:00 高频巡检，02:00 执行截图留存巡检（Asia/Shanghai）。',
   },
   '/post-entry': {
     eyebrow: 'Post Intake',

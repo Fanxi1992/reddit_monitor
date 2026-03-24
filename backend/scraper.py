@@ -173,6 +173,8 @@ def build_actor_input(url_batch: list[str]) -> dict:
         "skipComments": True,
         "skipUserPosts": True,
         "skipCommunity": True,
+        "maxItems": 50,
+        "maxPostCount": 50,
         "includeNSFW": True,
         "proxy": {
             "useApifyProxy": True,
